@@ -10,6 +10,14 @@ export default class Sphere {
         this.radius = radius;
     }
 
-    intersect(ray: Ray) {
+    intersect(ray: Ray): boolean {
+        const lVec: Vec3 = Vec3.minus(this.center, ray.position);
+        const lLen: number = lVec.mag();
+        const dLen: number = ray.direction.mag();
+        const theta: number = Math.acos(Vec3.dot(lVec, ray.direction) / (lLen * dLen));
+
+        const dist = lLen * Math.sin(theta);
+
+        return (dist <= this.radius);
     }
 }

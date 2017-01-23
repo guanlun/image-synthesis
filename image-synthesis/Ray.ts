@@ -12,6 +12,11 @@ export default class Ray {
     }
 
     trace(sceneObjects: Array<Sphere>): Color {
+        for (let obj of sceneObjects) {
+            if (obj.intersect(this)) {
+                return new Color(0, 255, 0);
+            }
+        }
         return new Color(255, 165, 0);
     }
 }
