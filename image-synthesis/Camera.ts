@@ -1,7 +1,7 @@
 ﻿import Vec3 from './Vec3';
 import Ray from './Ray';
 import Color from './Color';
-import Sphere from './Sphere';
+import { SceneObject } from './SceneObject';
 
 export default class Camera {
     position: Vec3;
@@ -14,7 +14,7 @@ export default class Camera {
         console.log(this.forward);
     }
 
-    render(context: CanvasRenderingContext2D, sceneObjects: Array<Sphere>): void {
+    render(context: CanvasRenderingContext2D, sceneObjects: Array<SceneObject>): void {
         for (var y = 0; y < 600; y++) {
             for (var x = 0; x < 800; x++) {
                 const camPlanePos: Vec3 = new Vec3(-1 + x / 400, -0.75 + y / 400, 0);

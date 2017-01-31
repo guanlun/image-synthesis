@@ -1,0 +1,6 @@
+C:\Users\guanl\OneDrive\Documents\GitHub\image-synthesis\image-synthesis\bin\image-synthesis.dll.config
+C:\Users\guanl\OneDrive\Documents\GitHub\image-synthesis\image-synthesis\bin\image-synthesis.dll
+C:\Users\guanl\OneDrive\Documents\GitHub\image-synthesis\image-synthesis\bin\image-synthesis.pdb
+C:\Users\guanl\OneDrive\Documents\GitHub\image-synthesis\image-synthesis\obj\Debug\image-synthesis.csprojResolveAssemblyReference.cache
+C:\Users\guanl\OneDrive\Documents\GitHub\image-synthesis\image-synthesis\obj\Debug\image-synthesis.dll
+C:\Users\guanl\OneDrive\Documents\GitHub\image-synthesis\image-synthesis\obj\Debug\image-synthesis.pdb

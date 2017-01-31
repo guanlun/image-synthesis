@@ -32,6 +32,7 @@
     <TypeScriptCompile Include="Canvas.ts" />
     <TypeScriptCompile Include="Color.ts" />
     <TypeScriptCompile Include="Ray.ts" />
+    <TypeScriptCompile Include="SceneObject.ts" />
     <TypeScriptCompile Include="Sphere.ts" />
     <TypeScriptCompile Include="Vec3.ts" />
   </ItemGroup>
