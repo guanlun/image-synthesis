@@ -5,6 +5,21 @@ module.exports = class Color {
         this.g = g;
         this.b = b;
     }
+
+    toHexString() {
+        return `#${this.channelHex(this.r)}${this.channelHex(this.g)}${this.channelHex(this.b)}`;
+    }
+
+    channelHex(v) {
+        const intVal = Math.floor(v * 255);
+        const hex = intVal.toString(16);
+
+        if (hex.length === 1) {
+            return '0' + hex;
+        } else {
+            return hex;
+        }
+    }
 }
 
 },{}],2:[function(require,module,exports){
@@ -21,7 +36,7 @@ module.exports = class Cylinder extends Shape {
         this.halfHeight = halfHeight;
     }
 
-    isInside(point) {
+    pointInside(point) {
         const diff = Vec3.subtract(point, this.center);
 
         const axisDist = Vec3.dot(this.dir, diff);
@@ -32,15 +47,7 @@ module.exports = class Cylinder extends Shape {
         const theta = Math.acos(axisDist / (this.dir.magnitude() * diff.magnitude()));
         const dist = Math.abs(Math.sin(theta) * diff.magnitude());
 
-        if (dist < this.radius) {
-            // console.log('ha');
-        }
-
         return (dist < this.radius);
-    }
-
-    toHexString() {
-        return 'cyan';
     }
 }
 
@@ -56,13 +63,9 @@ module.exports = class Plane extends Shape {
         this.normal = normal;
     }
 
-    isInside(point) {
+    pointInside(point) {
         const rel = Vec3.subtract(point, this.pointOnPlane);
         return Vec3.dot(rel, this.normal) < 0;
-    }
-
-    toHexString() {
-        return 'red';
     }
 }
 
@@ -81,10 +84,25 @@ module.exports = class Renderer {
     }
 
     render() {
+        console.log(new Color(1, 0, 0).toHexString());
         const shapes = [
-            new Sphere(new Vec3(0, 0, 0), 0.5, new Color(0, 0, 0)),
-            new Plane(new Vec3(0, 0, -0.3), new Vec3(0.2, 1, 1), new Color(255, 0, 255)),
-            new Cylinder(new Vec3(0.5, 0.5, 0.5), new Vec3(-0.5, 0.5, 1), 0.2, 1)
+            new Sphere(
+                new Vec3(0, 0, 0),
+                0.5,
+                new Color(1, 0, 0)
+            ),
+            new Plane(
+                new Vec3(0, 0, -0.3),
+                new Vec3(0.2, 1, 1),
+                new Color(0, 0, 1)
+            ),
+            new Cylinder(
+                new Vec3(0.5, 0.5, 0.5),
+                new Vec3(-0.5, 0.5, 1),
+                0.2,
+                1,
+                new Color(0, 1, 0)
+            ),
         ];
 
         const zPos = 0;
@@ -96,28 +114,46 @@ module.exports = class Renderer {
 
         for (let y = 0; y < this.canvas.height; y++) {
             for (let x = 0; x < this.canvas.width; x++) {
-                const xPos = -crossPlaneWidth / 2 + x * ratio;
-                const yPos = -crossPlaneHeight / 2 + y * ratio;
+                const xRand = Math.random() * 0.25;
+                const yRand = Math.random() * 0.25;
 
-                const p = new Vec3(xPos, yPos, zPos);
+                let r = 0, g = 0, b = 0;
 
-                for (let shapeIdx = 0; shapeIdx < shapes.length; shapeIdx++) {
-                    const shape = shapes[shapeIdx];
-                    // console.log(shape);
+                for (let yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
+                    for (let xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
+                        const xJitterPos = x + xOffset + xRand;
+                        const yJitterPos = y + yOffset + yRand;
 
-                    if (shape.isInside(p)) {
-                        this.context.fillStyle = shape.toHexString();
-                        break;
-                    } else {
-                        this.context.fillStyle = 'white';
+                        const xPos = -crossPlaneWidth / 2 + xJitterPos * ratio;
+                        const yPos = -crossPlaneHeight / 2 + yJitterPos * ratio;
+
+                        const p = new Vec3(xPos, yPos, zPos);
+
+                        let sampleColor = null;
+
+                        for (let shapeIdx = 0; shapeIdx < shapes.length; shapeIdx++) {
+                            const shape = shapes[shapeIdx];
+
+                            if (shape.pointInside(p)) {
+                                sampleColor = shape.color;
+                                break;
+                            }
+                        }
+
+                        if (sampleColor !== null) {
+                            r += sampleColor.r;
+                            g += sampleColor.g;
+                            b += sampleColor.b;
+                        }
                     }
                 }
 
+                const resultColor = new Color(r / 16, g / 16, b / 16);
+
+                this.context.fillStyle = resultColor.toHexString();
                 this.context.fillRect(x, y, 1, 1);
             }
-
         }
-
     }
 }
 
@@ -127,10 +163,6 @@ const Vec3 = require('./Vec3');
 module.exports = class Shape {
     constructor(color) {
         this.color = color;
-    }
-
-    toHexString() {
-        throw new Error('toHexString is not not implemented');
     }
 }
 
@@ -145,7 +177,7 @@ module.exports = class Sphere extends Shape {
         this.radius = radius;
     }
 
-    isInside(point) {
+    pointInside(point) {
         const xDiff = this.pos.x - point.x;
         const yDiff = this.pos.y - point.y;
         const zDiff = this.pos.z - point.z;
@@ -153,10 +185,6 @@ module.exports = class Sphere extends Shape {
         const dist = Math.sqrt(xDiff * xDiff + yDiff * yDiff + zDiff * zDiff);
 
         return dist - this.radius < 0;
-    }
-
-    toHexString() {
-        return 'blue';
     }
 };
 

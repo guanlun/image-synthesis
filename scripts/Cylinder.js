@@ -11,7 +11,7 @@ module.exports = class Cylinder extends Shape {
         this.halfHeight = halfHeight;
     }
 
-    isInside(point) {
+    pointInside(point) {
         const diff = Vec3.subtract(point, this.center);
 
         const axisDist = Vec3.dot(this.dir, diff);
@@ -22,14 +22,6 @@ module.exports = class Cylinder extends Shape {
         const theta = Math.acos(axisDist / (this.dir.magnitude() * diff.magnitude()));
         const dist = Math.abs(Math.sin(theta) * diff.magnitude());
 
-        if (dist < this.radius) {
-            // console.log('ha');
-        }
-
         return (dist < this.radius);
-    }
-
-    toHexString() {
-        return 'cyan';
     }
 }

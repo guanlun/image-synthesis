@@ -8,7 +8,7 @@ module.exports = class Sphere extends Shape {
         this.radius = radius;
     }
 
-    isInside(point) {
+    pointInside(point) {
         const xDiff = this.pos.x - point.x;
         const yDiff = this.pos.y - point.y;
         const zDiff = this.pos.z - point.z;
@@ -16,9 +16,5 @@ module.exports = class Sphere extends Shape {
         const dist = Math.sqrt(xDiff * xDiff + yDiff * yDiff + zDiff * zDiff);
 
         return dist - this.radius < 0;
-    }
-
-    toHexString() {
-        return 'blue';
     }
 };

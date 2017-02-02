@@ -9,12 +9,8 @@ module.exports = class Plane extends Shape {
         this.normal = normal;
     }
 
-    isInside(point) {
+    pointInside(point) {
         const rel = Vec3.subtract(point, this.pointOnPlane);
         return Vec3.dot(rel, this.normal) < 0;
-    }
-
-    toHexString() {
-        return 'red';
     }
 }
