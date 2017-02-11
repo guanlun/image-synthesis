@@ -13,6 +13,16 @@ module.exports = class Vec3 {
         );
     }
 
+    static normalize(v) {
+        const mag = v.magnitude();
+        
+        return new Vec3(
+            v.x / mag,
+            v.y / mag,
+            v.z / mag
+        );
+    }
+
     static add(v1, v2) {
         return new Vec3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
     }
@@ -23,5 +33,13 @@ module.exports = class Vec3 {
 
     static dot(v1, v2) {
         return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+    }
+
+    static cross(v1, v2) {
+        return new Vec3(
+            v1.y * v2.z - v1.z * v2.y,
+            v1.z * v2.x - v1.x * v2.z,
+            v1.x * v2.y - v1.y * v2.x
+        );
     }
 }

@@ -1,10 +1,13 @@
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
+const QuadraticShape = require('./QuadraticShape');
 const Sphere = require('./Sphere');
 const Plane = require('./Plane');
 const Cylinder = require('./Cylinder');
+const Camera = require('./Camera');
+const Ray = require('./Ray');
 
-const antialiasing = true;
+const antialiasing = false;
 
 const shapes = [
     new Sphere(
@@ -31,6 +34,14 @@ const shapes = [
     ),
 ];
 
+const qShape = new QuadraticShape(
+    new Vec3(0, 0, 1),
+    new Vec3(0, 0, -1),
+    new Vec3(0, 0, 1),
+    new Vec3(0, 1, 0),
+    1, 1, 1
+);
+
 module.exports = class Renderer {
     constructor(canvasElement) {
         this.canvas = canvasElement;
@@ -39,6 +50,13 @@ module.exports = class Renderer {
     }
 
     render() {
+        console.log(qShape)
+        new Camera(
+            new Vec3(0, 0, -1),
+            new Vec3(0, 0, 1),
+            new Vec3(0, 1, 0)
+        );
+
         for (let y = 0; y < this.canvas.height; y++) {
             for (let x = 0; x < this.canvas.width; x++) {
                 const xRand = Math.random() * 0.25;
@@ -86,16 +104,17 @@ module.exports = class Renderer {
         const xPos = -crossPlaneWidth / 2 + x * ratio;
         const yPos = -crossPlaneHeight / 2 + y * ratio;
 
-        const p = new Vec3(xPos, yPos, zPos);
 
-        for (let shapeIdx = 0; shapeIdx < shapes.length; shapeIdx++) {
-            const shape = shapes[shapeIdx];
+        const camPos = new Vec3(0, 0, -1);
+        const ray = new Ray(
+            camPos,
+            Vec3.normalize(Vec3.subtract(new Vec3(xPos, yPos, 0), camPos))
+        );
 
-            if (shape.pointInside(p)) {
-                return shape.color;
-            }
+        if (qShape.intersect(ray)) {
+            return new Color(1, 0, 0);
         }
 
-        return new Color(0, 0, 0);
+        return new Color(1, 1, 0);
     }
 }
