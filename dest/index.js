@@ -86,7 +86,8 @@ module.exports = class Plane extends Shape {
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
-	constructor(pCenter, p0, p1, v1, s0, s1, s2) {
+	constructor(color, pCenter, p0, p1, v1, s0, s1, s2, a02, a12, a22, a21, a00) {
+		this.color = color;
 		this.pCenter = pCenter;
 
 		const v2 = Vec3.subtract(p1, p0);
@@ -99,14 +100,18 @@ module.exports = class QuadraticShape {
 		this.s1 = s1;
 		this.s2 = s2;
 
-		this.a02 = 1;
-		this.a12 = 1;
-		this.a22 = 1;
-		this.a21 = 0;
-		this.a00 = -1;
+		this.a02 = a02;
+		this.a12 = a12;
+		this.a22 = a22;
+		this.a21 = a21;
+		this.a00 = a00;
 	}
 
 	intersect(ray) {
+		// if (this.a02 == 0 && this.a12 == 0 && this.a22 == 0) {
+  //           return 1;
+  //       }
+
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;
@@ -132,16 +137,22 @@ module.exports = class QuadraticShape {
 			this.a21 * ec2 +
 			this.a00;
 
+		if (A == 0) {
+			return -C / B;
+		}
+
 		const delta = Math.pow(B, 2) - 4 * A * C;
 
 		if (delta < 0) {
 			return;
 		}
 
-		return {
-			t1: (-B - Math.sqrt(delta)) / (2 * A),
-			t2: (-B + Math.sqrt(delta)) / (2 * A),
-		}
+		return (-B - Math.sqrt(delta)) / (2 * A);
+
+		// return {
+		// 	t1: (-B - Math.sqrt(delta)) / (2 * A),
+		// 	t2: (-B + Math.sqrt(delta)) / (2 * A),
+		// }
 	}
 }
 },{"./Vec3":10}],6:[function(require,module,exports){
@@ -165,38 +176,69 @@ const Ray = require('./Ray');
 
 const antialiasing = false;
 
+// const shapes = [
+//     new Sphere(
+//         new Vec3(-0.4, 0, 0),
+//         0.3,
+//         new Color(0.26, 0.53, 0.96)
+//     ),
+//     new Sphere(
+//         new Vec3(0.2, 0.3, 0),
+//         0.1,
+//         new Color(0.95, 0.81, 0.26)
+//     ),
+//     new Plane(
+//         new Vec3(0, 0, -0.3),
+//         new Vec3(0.2, 1, 1),
+//         new Color(0.65, 0.30, 0.76)
+//     ),
+//     new Cylinder(
+//         new Vec3(0.3, 0.4, 0.6),
+//         new Vec3(-0.5, 0.5, 1),
+//         0.2,
+//         1,
+//         new Color(0.40, 0.81, 0.51)
+//     ),
+// ];
+
 const shapes = [
-    new Sphere(
-        new Vec3(-0.4, 0, 0),
-        0.3,
-        new Color(0.26, 0.53, 0.96)
+    new QuadraticShape(
+        new Color(1, 0, 0),
+        new Vec3(4, 4, 4),
+        new Vec3(0, 0, 1),
+        new Vec3(0, 1, 0),
+        new Vec3(1, 0, 0),
+        1, 1, 1,
+        1, 1, 0, 0, -1
     ),
-    new Sphere(
-        new Vec3(0.2, 0.3, 0),
-        0.1,
-        new Color(0.95, 0.81, 0.26)
+    new QuadraticShape(
+        new Color(0, 1, 0),
+        new Vec3(0, 0, 3),
+        new Vec3(0, 0, 1),
+        new Vec3(0, 1, 0),
+        new Vec3(1, 0, 0),
+        1, 1, 1,
+        1, 1, 1, 0, -1
     ),
-    new Plane(
-        new Vec3(0, 0, -0.3),
-        new Vec3(0.2, 1, 1),
-        new Color(0.65, 0.30, 0.76)
+    new QuadraticShape(
+        new Color(0, 0, 1),
+        new Vec3(0, 0, 10),
+        new Vec3(0, 0, 1),
+        new Vec3(0, 1, 0),
+        new Vec3(1, 0, 0),
+        1, 1, 1,
+        0, 0, 0, 1, 0
     ),
-    new Cylinder(
-        new Vec3(0.3, 0.4, 0.6),
-        new Vec3(-0.5, 0.5, 1),
-        0.2,
-        1,
-        new Color(0.40, 0.81, 0.51)
+    new QuadraticShape(
+        new Color(0, 1, 1),
+        new Vec3(0, 0, 10),
+        new Vec3(1, 1, 0),
+        new Vec3(0, 1, -1),
+        new Vec3(1, 0, -1),
+        1, 1, 1,
+        0, 0, 0, 1, 0
     ),
 ];
-
-const qShape = new QuadraticShape(
-    new Vec3(0, 0, 1),
-    new Vec3(0, 0, -1),
-    new Vec3(0, 0, 1),
-    new Vec3(0, 1, 0),
-    1, 1, 1
-);
 
 module.exports = class Renderer {
     constructor(canvasElement) {
@@ -206,7 +248,6 @@ module.exports = class Renderer {
     }
 
     render() {
-        console.log(qShape)
         new Camera(
             new Vec3(0, 0, -1),
             new Vec3(0, 0, 1),
@@ -260,18 +301,27 @@ module.exports = class Renderer {
         const xPos = -crossPlaneWidth / 2 + x * ratio;
         const yPos = -crossPlaneHeight / 2 + y * ratio;
 
-
         const camPos = new Vec3(0, 0, -1);
         const ray = new Ray(
             camPos,
             Vec3.normalize(Vec3.subtract(new Vec3(xPos, yPos, 0), camPos))
         );
 
-        if (qShape.intersect(ray)) {
-            return new Color(1, 0, 0);
-        }
+        let color;
+        let minT = Number.MAX_VALUE;
 
-        return new Color(1, 1, 0);
+        // if (Math.abs(xPos) < 0.001 && Math.abs(yPos) < 0.001) {
+
+            for (let shape of shapes) {
+                const t = shape.intersect(ray);
+                if (t && (t < minT)) {
+                    minT = t;
+                    color = shape.color;
+                }
+            }
+        // }
+
+        return color || new Color(0, 0, 0);
     }
 }
 
