@@ -23,10 +23,6 @@ module.exports = class QuadraticShape {
 	}
 
 	intersect(ray) {
-		// if (this.a02 == 0 && this.a12 == 0 && this.a22 == 0) {
-  //           return 1;
-  //       }
-
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;
@@ -52,7 +48,7 @@ module.exports = class QuadraticShape {
 			this.a21 * ec2 +
 			this.a00;
 
-		if (A == 0) {
+		if (A === 0) {
 			return -C / B;
 		}
 
@@ -62,11 +58,8 @@ module.exports = class QuadraticShape {
 			return;
 		}
 
-		return (-B - Math.sqrt(delta)) / (2 * A);
+		const sqrtDelta = Math.sqrt(delta);
 
-		// return {
-		// 	t1: (-B - Math.sqrt(delta)) / (2 * A),
-		// 	t2: (-B + Math.sqrt(delta)) / (2 * A),
-		// }
+		return Math.min((-B - sqrtDelta) / (2 * A), (-B + sqrtDelta) / (2 * A));
 	}
 }

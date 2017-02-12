@@ -1,17 +1,30 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 const Vec3 = require('./Vec3');
+const Ray = require('./Ray');
 
 module.exports = class Camera {
-    constructor(position, viewDir, upDir) {
+    constructor(position, viewDir, upDir, fov) {
         this.position = position;
         this.viewDir = viewDir;
         this.upDir = upDir;
+        this.fov = fov || 1;
 
         this.rightDir = Vec3.cross(upDir, viewDir);
     }
+
+    createRay(x, y) {
+    	const xOffsetVec = Vec3.scalarProd(x * this.fov, this.rightDir);
+    	const yOffsetVec = Vec3.scalarProd(-y * this.fov, this.upDir);
+    	const offsetVec = Vec3.add(xOffsetVec, yOffsetVec);
+
+    	return new Ray(
+    		this.position,
+    		Vec3.normalize(Vec3.add(this.viewDir, offsetVec))
+		);
+    }
 }
 
-},{"./Vec3":10}],2:[function(require,module,exports){
+},{"./Ray":6,"./Vec3":10}],2:[function(require,module,exports){
 module.exports = class Color {
     constructor(r, g, b) {
         this.r = r;
@@ -108,10 +121,6 @@ module.exports = class QuadraticShape {
 	}
 
 	intersect(ray) {
-		// if (this.a02 == 0 && this.a12 == 0 && this.a22 == 0) {
-  //           return 1;
-  //       }
-
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;
@@ -137,7 +146,7 @@ module.exports = class QuadraticShape {
 			this.a21 * ec2 +
 			this.a00;
 
-		if (A == 0) {
+		if (A === 0) {
 			return -C / B;
 		}
 
@@ -147,12 +156,9 @@ module.exports = class QuadraticShape {
 			return;
 		}
 
-		return (-B - Math.sqrt(delta)) / (2 * A);
+		const sqrtDelta = Math.sqrt(delta);
 
-		// return {
-		// 	t1: (-B - Math.sqrt(delta)) / (2 * A),
-		// 	t2: (-B + Math.sqrt(delta)) / (2 * A),
-		// }
+		return Math.min((-B - sqrtDelta) / (2 * A), (-B + sqrtDelta) / (2 * A));
 	}
 }
 },{"./Vec3":10}],6:[function(require,module,exports){
@@ -161,7 +167,7 @@ const Vec3 = require('./Vec3');
 module.exports = class Ray {
 	constructor(startingPos, dir) {
 		this.startingPos = startingPos;
-		this.dir = dir;
+		this.dir = Vec3.normalize(dir);
 	}
 }
 },{"./Vec3":10}],7:[function(require,module,exports){
@@ -238,21 +244,36 @@ const shapes = [
         1, 1, 1,
         0, 0, 0, 1, 0
     ),
+    new QuadraticShape(
+        new Color(0, 0.5, 1),
+        new Vec3(0, 0, 10),
+        new Vec3(0, 1, 0),
+        new Vec3(0, 0, -1),
+        new Vec3(-1, 0, 0),
+        1, 1, 1,
+        0, 0, 0, 1, 0
+    ),
 ];
+
+const camera = new Camera(
+    new Vec3(0, 2, -1),
+    new Vec3(0, 0, 1),
+    new Vec3(0, 1, 0),
+    2
+);
 
 module.exports = class Renderer {
     constructor(canvasElement) {
         this.canvas = canvasElement;
 
         this.context = this.canvas.getContext('2d');
+
+        this.canvas.addEventListener('click', (evt) => {
+            this._computeColorAtPos(evt.offsetX, evt.offsetY, true);
+        });
     }
 
     render() {
-        new Camera(
-            new Vec3(0, 0, -1),
-            new Vec3(0, 0, 1),
-            new Vec3(0, 1, 0)
-        );
 
         for (let y = 0; y < this.canvas.height; y++) {
             for (let x = 0; x < this.canvas.width; x++) {
@@ -290,7 +311,7 @@ module.exports = class Renderer {
         }
     }
 
-    _computeColorAtPos(x, y) {
+    _computeColorAtPos(x, y, debug) {
         const crossPlaneWidth = 2;
         const crossPlaneHeight = crossPlaneWidth / this.canvas.width * this.canvas.height;
 
@@ -301,25 +322,25 @@ module.exports = class Renderer {
         const xPos = -crossPlaneWidth / 2 + x * ratio;
         const yPos = -crossPlaneHeight / 2 + y * ratio;
 
-        const camPos = new Vec3(0, 0, -1);
-        const ray = new Ray(
-            camPos,
-            Vec3.normalize(Vec3.subtract(new Vec3(xPos, yPos, 0), camPos))
-        );
+        const ray = camera.createRay(xPos, yPos);
 
         let color;
         let minT = Number.MAX_VALUE;
 
-        // if (Math.abs(xPos) < 0.001 && Math.abs(yPos) < 0.001) {
-
-            for (let shape of shapes) {
-                const t = shape.intersect(ray);
-                if (t && (t < minT)) {
-                    minT = t;
-                    color = shape.color;
-                }
+        for (let shape of shapes) {
+            const t = shape.intersect(ray);
+            if (debug) {
+                console.log(shape, t);
             }
-        // }
+            if (t && (t > 0) && (t < minT)) {
+                minT = t;
+                color = shape.color;
+            }
+        }
+
+        if (debug) {
+            console.log('-------------------------------------');
+        }
 
         return color || new Color(0, 0, 0);
     }
@@ -388,6 +409,10 @@ module.exports = class Vec3 {
 
     static subtract(v1, v2) {
         return new Vec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+    }
+
+    static scalarProd(n, v) {
+        return new Vec3(n * v.x, n * v.y, n * v.z);
     }
 
     static dot(v1, v2) {

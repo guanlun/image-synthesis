@@ -71,21 +71,36 @@ const shapes = [
         1, 1, 1,
         0, 0, 0, 1, 0
     ),
+    new QuadraticShape(
+        new Color(0, 0.5, 1),
+        new Vec3(0, 0, 10),
+        new Vec3(0, 1, 0),
+        new Vec3(0, 0, -1),
+        new Vec3(-1, 0, 0),
+        1, 1, 1,
+        0, 0, 0, 1, 0
+    ),
 ];
+
+const camera = new Camera(
+    new Vec3(0, 2, -1),
+    new Vec3(0, 0, 1),
+    new Vec3(0, 1, 0),
+    2
+);
 
 module.exports = class Renderer {
     constructor(canvasElement) {
         this.canvas = canvasElement;
 
         this.context = this.canvas.getContext('2d');
+
+        this.canvas.addEventListener('click', (evt) => {
+            this._computeColorAtPos(evt.offsetX, evt.offsetY, true);
+        });
     }
 
     render() {
-        new Camera(
-            new Vec3(0, 0, -1),
-            new Vec3(0, 0, 1),
-            new Vec3(0, 1, 0)
-        );
 
         for (let y = 0; y < this.canvas.height; y++) {
             for (let x = 0; x < this.canvas.width; x++) {
@@ -123,7 +138,7 @@ module.exports = class Renderer {
         }
     }
 
-    _computeColorAtPos(x, y) {
+    _computeColorAtPos(x, y, debug) {
         const crossPlaneWidth = 2;
         const crossPlaneHeight = crossPlaneWidth / this.canvas.width * this.canvas.height;
 
@@ -134,25 +149,25 @@ module.exports = class Renderer {
         const xPos = -crossPlaneWidth / 2 + x * ratio;
         const yPos = -crossPlaneHeight / 2 + y * ratio;
 
-        const camPos = new Vec3(0, 0, -1);
-        const ray = new Ray(
-            camPos,
-            Vec3.normalize(Vec3.subtract(new Vec3(xPos, yPos, 0), camPos))
-        );
+        const ray = camera.createRay(xPos, yPos);
 
         let color;
         let minT = Number.MAX_VALUE;
 
-        // if (Math.abs(xPos) < 0.001 && Math.abs(yPos) < 0.001) {
-
-            for (let shape of shapes) {
-                const t = shape.intersect(ray);
-                if (t && (t < minT)) {
-                    minT = t;
-                    color = shape.color;
-                }
+        for (let shape of shapes) {
+            const t = shape.intersect(ray);
+            if (debug) {
+                console.log(shape, t);
             }
-        // }
+            if (t && (t > 0) && (t < minT)) {
+                minT = t;
+                color = shape.color;
+            }
+        }
+
+        if (debug) {
+            console.log('-------------------------------------');
+        }
 
         return color || new Color(0, 0, 0);
     }

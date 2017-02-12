@@ -31,6 +31,10 @@ module.exports = class Vec3 {
         return new Vec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
     }
 
+    static scalarProd(n, v) {
+        return new Vec3(n * v.x, n * v.y, n * v.z);
+    }
+
     static dot(v1, v2) {
         return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
     }
