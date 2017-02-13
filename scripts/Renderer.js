@@ -6,33 +6,9 @@ const Plane = require('./Plane');
 const Cylinder = require('./Cylinder');
 const Camera = require('./Camera');
 const Ray = require('./Ray');
+const Light = require('./Light');
 
 const antialiasing = false;
-
-// const shapes = [
-//     new Sphere(
-//         new Vec3(-0.4, 0, 0),
-//         0.3,
-//         new Color(0.26, 0.53, 0.96)
-//     ),
-//     new Sphere(
-//         new Vec3(0.2, 0.3, 0),
-//         0.1,
-//         new Color(0.95, 0.81, 0.26)
-//     ),
-//     new Plane(
-//         new Vec3(0, 0, -0.3),
-//         new Vec3(0.2, 1, 1),
-//         new Color(0.65, 0.30, 0.76)
-//     ),
-//     new Cylinder(
-//         new Vec3(0.3, 0.4, 0.6),
-//         new Vec3(-0.5, 0.5, 1),
-//         0.2,
-//         1,
-//         new Color(0.40, 0.81, 0.51)
-//     ),
-// ];
 
 const shapes = [
     new QuadraticShape(
@@ -82,11 +58,17 @@ const shapes = [
     ),
 ];
 
+const lights = [
+    new Light(
+        new Vec3(-10, 5, 5)
+    ),
+];
+
 const camera = new Camera(
-    new Vec3(0, 2, -1),
-    new Vec3(0, 0, 1),
+    new Vec3(-3, 0, -1),
+    new Vec3(1, 0, 1),
     new Vec3(0, 1, 0),
-    2
+    1
 );
 
 module.exports = class Renderer {
@@ -95,13 +77,13 @@ module.exports = class Renderer {
 
         this.context = this.canvas.getContext('2d');
 
+        // For debugging
         this.canvas.addEventListener('click', (evt) => {
             this._computeColorAtPos(evt.offsetX, evt.offsetY, true);
         });
     }
 
     render() {
-
         for (let y = 0; y < this.canvas.height; y++) {
             for (let x = 0; x < this.canvas.width; x++) {
                 const xRand = Math.random() * 0.25;
@@ -138,6 +120,25 @@ module.exports = class Renderer {
         }
     }
 
+    _shade(intersect) {
+        const mat = intersect.obj.color;
+
+        let r = 0.1, g = 0.1, b = 0.1;
+
+        for (let light of lights) {
+            const pToLight = Vec3.subtract(light.position, intersect.intersectionPoint);
+            const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
+
+            if (cosTheta > 0) {
+                r += mat.r * cosTheta;
+                g += mat.g * cosTheta;
+                b += mat.b * cosTheta;
+            }
+        }
+
+        return new Color(r, g, b);
+    }
+
     _computeColorAtPos(x, y, debug) {
         const crossPlaneWidth = 2;
         const crossPlaneHeight = crossPlaneWidth / this.canvas.width * this.canvas.height;
@@ -155,13 +156,18 @@ module.exports = class Renderer {
         let minT = Number.MAX_VALUE;
 
         for (let shape of shapes) {
-            const t = shape.intersect(ray);
+            const intersect = shape.intersect(ray);
             if (debug) {
-                console.log(shape, t);
+                console.log(shape, intersect);
             }
-            if (t && (t > 0) && (t < minT)) {
-                minT = t;
-                color = shape.color;
+            if (intersect && (intersect.t < minT)) {
+                minT = intersect.t;
+                color = this._shade(intersect);
+                // color = new Color(
+                //     (intersect.normal.x + 1) / 2, 
+                //     (intersect.normal.y + 1) / 2, 
+                //     (intersect.normal.z + 1) / 2
+                // )
             }
         }
 

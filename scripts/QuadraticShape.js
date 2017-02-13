@@ -48,18 +48,41 @@ module.exports = class QuadraticShape {
 			this.a21 * ec2 +
 			this.a00;
 
+		let t;
+
 		if (A === 0) {
-			return -C / B;
+			t = -C / B;
+		} else {
+			const delta = Math.pow(B, 2) - 4 * A * C;
+
+			if (delta < 0) {
+				return;
+			}
+
+			const sqrtDelta = Math.sqrt(delta);
+
+			t = Math.min((-B - sqrtDelta) / (2 * A), (-B + sqrtDelta) / (2 * A));
 		}
 
-		const delta = Math.pow(B, 2) - 4 * A * C;
-
-		if (delta < 0) {
+		if (t <= 0) {
 			return;
 		}
 
-		const sqrtDelta = Math.sqrt(delta);
+		const intersectionPoint = Vec3.add(ray.startingPos, Vec3.scalarProd(t, ray.dir));
 
-		return Math.min((-B - sqrtDelta) / (2 * A), (-B + sqrtDelta) / (2 * A));
+		const relPos = Vec3.subtract(intersectionPoint, this.pCenter);
+		const normal = Vec3.normalize(Vec3.add(
+			Vec3.scalarProd(2 * this.a02 * (Vec3.dot(this.n0, relPos) / Math.pow(this.s0, 2)), this.n0),
+			Vec3.scalarProd(2 * this.a12 * (Vec3.dot(this.n1, relPos) / Math.pow(this.s1, 2)), this.n1),
+			Vec3.scalarProd(2 * this.a22 * (Vec3.dot(this.n2, relPos) / Math.pow(this.s2, 2)), this.n2),
+			Vec3.scalarProd(this.a21 / this.s2, this.n2)
+		));
+
+		return {
+			t: t,
+			intersectionPoint: intersectionPoint,
+			normal: normal,
+			obj: this,
+		}
 	}
 }

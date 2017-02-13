@@ -4,11 +4,11 @@ const Ray = require('./Ray');
 module.exports = class Camera {
     constructor(position, viewDir, upDir, fov) {
         this.position = position;
-        this.viewDir = viewDir;
-        this.upDir = upDir;
+        this.viewDir = Vec3.normalize(viewDir);
+        this.upDir = Vec3.normalize(upDir);
         this.fov = fov || 1;
 
-        this.rightDir = Vec3.cross(upDir, viewDir);
+        this.rightDir = Vec3.normalize(Vec3.cross(upDir, viewDir));
     }
 
     createRay(x, y) {

@@ -5,11 +5,11 @@ const Ray = require('./Ray');
 module.exports = class Camera {
     constructor(position, viewDir, upDir, fov) {
         this.position = position;
-        this.viewDir = viewDir;
-        this.upDir = upDir;
+        this.viewDir = Vec3.normalize(viewDir);
+        this.upDir = Vec3.normalize(upDir);
         this.fov = fov || 1;
 
-        this.rightDir = Vec3.cross(upDir, viewDir);
+        this.rightDir = Vec3.normalize(Vec3.cross(upDir, viewDir));
     }
 
     createRay(x, y) {
@@ -24,12 +24,18 @@ module.exports = class Camera {
     }
 }
 
-},{"./Ray":6,"./Vec3":10}],2:[function(require,module,exports){
+},{"./Ray":7,"./Vec3":11}],2:[function(require,module,exports){
+function clamp(n) {
+    if (n > 1) return 1;
+    if (n < 0) return 0;
+    return n;
+}
+
 module.exports = class Color {
     constructor(r, g, b) {
-        this.r = r;
-        this.g = g;
-        this.b = b;
+        this.r = clamp(r);
+        this.g = clamp(g);
+        this.b = clamp(b);
     }
 
     toHexString() {
@@ -77,7 +83,13 @@ module.exports = class Cylinder extends Shape {
     }
 }
 
-},{"./Shape":8,"./Vec3":10}],4:[function(require,module,exports){
+},{"./Shape":9,"./Vec3":11}],4:[function(require,module,exports){
+module.exports = class Light {
+	constructor(position) {
+		this.position = position;
+	}
+}
+},{}],5:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Shape = require('./Shape');
 
@@ -95,7 +107,7 @@ module.exports = class Plane extends Shape {
     }
 }
 
-},{"./Shape":8,"./Vec3":10}],5:[function(require,module,exports){
+},{"./Shape":9,"./Vec3":11}],6:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
@@ -146,22 +158,45 @@ module.exports = class QuadraticShape {
 			this.a21 * ec2 +
 			this.a00;
 
+		let t;
+
 		if (A === 0) {
-			return -C / B;
+			t = -C / B;
+		} else {
+			const delta = Math.pow(B, 2) - 4 * A * C;
+
+			if (delta < 0) {
+				return;
+			}
+
+			const sqrtDelta = Math.sqrt(delta);
+
+			t = Math.min((-B - sqrtDelta) / (2 * A), (-B + sqrtDelta) / (2 * A));
 		}
 
-		const delta = Math.pow(B, 2) - 4 * A * C;
-
-		if (delta < 0) {
+		if (t <= 0) {
 			return;
 		}
 
-		const sqrtDelta = Math.sqrt(delta);
+		const intersectionPoint = Vec3.add(ray.startingPos, Vec3.scalarProd(t, ray.dir));
 
-		return Math.min((-B - sqrtDelta) / (2 * A), (-B + sqrtDelta) / (2 * A));
+		const relPos = Vec3.subtract(intersectionPoint, this.pCenter);
+		const normal = Vec3.normalize(Vec3.add(
+			Vec3.scalarProd(2 * this.a02 * (Vec3.dot(this.n0, relPos) / Math.pow(this.s0, 2)), this.n0),
+			Vec3.scalarProd(2 * this.a12 * (Vec3.dot(this.n1, relPos) / Math.pow(this.s1, 2)), this.n1),
+			Vec3.scalarProd(2 * this.a22 * (Vec3.dot(this.n2, relPos) / Math.pow(this.s2, 2)), this.n2),
+			Vec3.scalarProd(this.a21 / this.s2, this.n2)
+		));
+
+		return {
+			t: t,
+			intersectionPoint: intersectionPoint,
+			normal: normal,
+			obj: this,
+		}
 	}
 }
-},{"./Vec3":10}],6:[function(require,module,exports){
+},{"./Vec3":11}],7:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Ray {
@@ -170,7 +205,7 @@ module.exports = class Ray {
 		this.dir = Vec3.normalize(dir);
 	}
 }
-},{"./Vec3":10}],7:[function(require,module,exports){
+},{"./Vec3":11}],8:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const QuadraticShape = require('./QuadraticShape');
@@ -179,33 +214,9 @@ const Plane = require('./Plane');
 const Cylinder = require('./Cylinder');
 const Camera = require('./Camera');
 const Ray = require('./Ray');
+const Light = require('./Light');
 
 const antialiasing = false;
-
-// const shapes = [
-//     new Sphere(
-//         new Vec3(-0.4, 0, 0),
-//         0.3,
-//         new Color(0.26, 0.53, 0.96)
-//     ),
-//     new Sphere(
-//         new Vec3(0.2, 0.3, 0),
-//         0.1,
-//         new Color(0.95, 0.81, 0.26)
-//     ),
-//     new Plane(
-//         new Vec3(0, 0, -0.3),
-//         new Vec3(0.2, 1, 1),
-//         new Color(0.65, 0.30, 0.76)
-//     ),
-//     new Cylinder(
-//         new Vec3(0.3, 0.4, 0.6),
-//         new Vec3(-0.5, 0.5, 1),
-//         0.2,
-//         1,
-//         new Color(0.40, 0.81, 0.51)
-//     ),
-// ];
 
 const shapes = [
     new QuadraticShape(
@@ -255,11 +266,17 @@ const shapes = [
     ),
 ];
 
+const lights = [
+    new Light(
+        new Vec3(-10, 5, 5)
+    ),
+];
+
 const camera = new Camera(
-    new Vec3(0, 2, -1),
-    new Vec3(0, 0, 1),
+    new Vec3(-3, 0, -1),
+    new Vec3(1, 0, 1),
     new Vec3(0, 1, 0),
-    2
+    1
 );
 
 module.exports = class Renderer {
@@ -268,13 +285,13 @@ module.exports = class Renderer {
 
         this.context = this.canvas.getContext('2d');
 
+        // For debugging
         this.canvas.addEventListener('click', (evt) => {
             this._computeColorAtPos(evt.offsetX, evt.offsetY, true);
         });
     }
 
     render() {
-
         for (let y = 0; y < this.canvas.height; y++) {
             for (let x = 0; x < this.canvas.width; x++) {
                 const xRand = Math.random() * 0.25;
@@ -311,6 +328,25 @@ module.exports = class Renderer {
         }
     }
 
+    _shade(intersect) {
+        const mat = intersect.obj.color;
+
+        let r = 0.1, g = 0.1, b = 0.1;
+
+        for (let light of lights) {
+            const pToLight = Vec3.subtract(light.position, intersect.intersectionPoint);
+            const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
+
+            if (cosTheta > 0) {
+                r += mat.r * cosTheta;
+                g += mat.g * cosTheta;
+                b += mat.b * cosTheta;
+            }
+        }
+
+        return new Color(r, g, b);
+    }
+
     _computeColorAtPos(x, y, debug) {
         const crossPlaneWidth = 2;
         const crossPlaneHeight = crossPlaneWidth / this.canvas.width * this.canvas.height;
@@ -328,13 +364,18 @@ module.exports = class Renderer {
         let minT = Number.MAX_VALUE;
 
         for (let shape of shapes) {
-            const t = shape.intersect(ray);
+            const intersect = shape.intersect(ray);
             if (debug) {
-                console.log(shape, t);
+                console.log(shape, intersect);
             }
-            if (t && (t > 0) && (t < minT)) {
-                minT = t;
-                color = shape.color;
+            if (intersect && (intersect.t < minT)) {
+                minT = intersect.t;
+                color = this._shade(intersect);
+                // color = new Color(
+                //     (intersect.normal.x + 1) / 2, 
+                //     (intersect.normal.y + 1) / 2, 
+                //     (intersect.normal.z + 1) / 2
+                // )
             }
         }
 
@@ -346,7 +387,7 @@ module.exports = class Renderer {
     }
 }
 
-},{"./Camera":1,"./Color":2,"./Cylinder":3,"./Plane":4,"./QuadraticShape":5,"./Ray":6,"./Sphere":9,"./Vec3":10}],8:[function(require,module,exports){
+},{"./Camera":1,"./Color":2,"./Cylinder":3,"./Light":4,"./Plane":5,"./QuadraticShape":6,"./Ray":7,"./Sphere":10,"./Vec3":11}],9:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Shape {
@@ -355,7 +396,7 @@ module.exports = class Shape {
     }
 }
 
-},{"./Vec3":10}],9:[function(require,module,exports){
+},{"./Vec3":11}],10:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Shape = require('./Shape');
 
@@ -377,7 +418,7 @@ module.exports = class Sphere extends Shape {
     }
 };
 
-},{"./Shape":8,"./Vec3":10}],10:[function(require,module,exports){
+},{"./Shape":9,"./Vec3":11}],11:[function(require,module,exports){
 module.exports = class Vec3 {
     constructor(x, y, z) {
         this.x = x;
@@ -403,8 +444,16 @@ module.exports = class Vec3 {
         );
     }
 
-    static add(v1, v2) {
-        return new Vec3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+    static add(...vs) {
+        let xs = 0, ys = 0, zs = 0;
+
+        for (let v of vs) {
+            xs += v.x;
+            ys += v.y;
+            zs += v.z;
+        }
+
+        return new Vec3(xs, ys, zs);
     }
 
     static subtract(v1, v2) {
@@ -428,7 +477,7 @@ module.exports = class Vec3 {
     }
 }
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 const Renderer = require('./Renderer');
 
 window.onload = () => {
@@ -438,4 +487,4 @@ window.onload = () => {
     renderer.render();
 }
 
-},{"./Renderer":7}]},{},[11]);
+},{"./Renderer":8}]},{},[12]);

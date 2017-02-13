@@ -1,8 +1,14 @@
+function clamp(n) {
+    if (n > 1) return 1;
+    if (n < 0) return 0;
+    return n;
+}
+
 module.exports = class Color {
     constructor(r, g, b) {
-        this.r = r;
-        this.g = g;
-        this.b = b;
+        this.r = clamp(r);
+        this.g = clamp(g);
+        this.b = clamp(b);
     }
 
     toHexString() {
