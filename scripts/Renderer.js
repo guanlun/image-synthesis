@@ -11,48 +11,73 @@ const Light = require('./Light');
 const antialiasing = false;
 
 const shapes = [
+    // cylinder
     new QuadraticShape(
-        new Color(1, 0, 0),
-        new Vec3(4, 4, 4),
-        new Vec3(0, 0, 1),
+        new Color(0.9, 0.9, 0.9),
+        new Vec3(1.6, 1, 4),
+        new Vec3(0, 0, 0),
         new Vec3(0, 1, 0),
         new Vec3(1, 0, 0),
-        1, 1, 1,
+        0.5, 0.5, 0.5,
         1, 1, 0, 0, -1
     ),
+    // sphere
     new QuadraticShape(
-        new Color(0, 1, 0),
-        new Vec3(0, 0, 3),
+        new Color(0.7, 0.8, 1),
+        new Vec3(-1, -1, 4),
         new Vec3(0, 0, 1),
         new Vec3(0, 1, 0),
         new Vec3(1, 0, 0),
-        1, 1, 1,
+        1.2, 1.2, 1.2,
         1, 1, 1, 0, -1
     ),
+    // bottom plane
     new QuadraticShape(
-        new Color(0, 0, 1),
-        new Vec3(0, 0, 10),
-        new Vec3(0, 0, 1),
+        new Color(0.7, 0.7, 0.7),
+        new Vec3(0, -2, 0),
+        new Vec3(0, 0, 0),
         new Vec3(0, 1, 0),
         new Vec3(1, 0, 0),
         1, 1, 1,
         0, 0, 0, 1, 0
     ),
+    // left plane
     new QuadraticShape(
-        new Color(0, 1, 1),
-        new Vec3(0, 0, 10),
-        new Vec3(1, 1, 0),
-        new Vec3(0, 1, -1),
-        new Vec3(1, 0, -1),
+        new Color(1, 0.7, 0.7),
+        new Vec3(-3, 0, 0),
+        new Vec3(0, 0, 0),
+        new Vec3(1, 0, 0),
+        new Vec3(0, 1, 0),
         1, 1, 1,
         0, 0, 0, 1, 0
     ),
+    // right plane
     new QuadraticShape(
-        new Color(0, 0.5, 1),
-        new Vec3(0, 0, 10),
-        new Vec3(0, 1, 0),
-        new Vec3(0, 0, -1),
+        new Color(0.7, 1, 0.7),
+        new Vec3(3, 0, 0),
+        new Vec3(0, 0, 0),
         new Vec3(-1, 0, 0),
+        new Vec3(0, 1, 0),
+        1, 1, 1,
+        0, 0, 0, 1, 0
+    ),
+    // back plane
+    new QuadraticShape(
+        new Color(0.7, 0.7, 0.7),
+        new Vec3(0, 0, 5),
+        new Vec3(0, 0, 0),
+        new Vec3(0, 0, -1),
+        new Vec3(0, 1, 0),
+        1, 1, 1,
+        0, 0, 0, 1, 0
+    ),
+    // top plane
+    new QuadraticShape(
+        new Color(0.7, 0.7, 0.7),
+        new Vec3(0, 3, 0),
+        new Vec3(0, 0, 0),
+        new Vec3(0, 1, 0),
+        new Vec3(1, 0, 0),
         1, 1, 1,
         0, 0, 0, 1, 0
     ),
@@ -60,13 +85,13 @@ const shapes = [
 
 const lights = [
     new Light(
-        new Vec3(-10, 5, 5)
+        new Vec3(0, 4, 1.5)
     ),
 ];
 
 const camera = new Camera(
-    new Vec3(-3, 0, -1),
-    new Vec3(1, 0, 1),
+    new Vec3(0, 0, -1),
+    new Vec3(0, 0, 1),
     new Vec3(0, 1, 0),
     1
 );
@@ -145,10 +170,10 @@ module.exports = class Renderer {
             }
 
             const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
-            if (specularCos > 0.9) {
-                r += 0.5 * Math.pow(specularCos, 2);
-                g += 0.5 * Math.pow(specularCos, 2);
-                b += 0.5 * Math.pow(specularCos, 2);
+            if (specularCos > 0) {
+                r += 1 * Math.pow(specularCos, 45);
+                g += 1 * Math.pow(specularCos, 45);
+                b += 1 * Math.pow(specularCos, 45);
             }
         }
 
