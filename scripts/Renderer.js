@@ -84,40 +84,49 @@ module.exports = class Renderer {
     }
 
     render() {
-        for (let y = 0; y < this.canvas.height; y++) {
-            for (let x = 0; x < this.canvas.width; x++) {
-                const xRand = Math.random() * 0.25;
-                const yRand = Math.random() * 0.25;
+        this._renderRow(0);
+    }
 
-                let resultColor;
+    _renderRow(y) {
+        if (y >= this.canvas.height) {
+            return;
+        }
+        for (let x = 0; x < this.canvas.width; x++) {
+            const xRand = Math.random() * 0.25;
+            const yRand = Math.random() * 0.25;
 
-                if (antialiasing) {
-                    let r = 0, g = 0, b = 0;
+            let resultColor;
 
-                    for (let yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
-                        for (let xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
-                            const xJitterPos = x + xOffset + xRand;
-                            const yJitterPos = y + yOffset + yRand;
+            if (antialiasing) {
+                let r = 0, g = 0, b = 0;
 
-                            const sampleColor = this._computeColorAtPos(xJitterPos, yJitterPos);
+                for (let yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
+                    for (let xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
+                        const xJitterPos = x + xOffset + xRand;
+                        const yJitterPos = y + yOffset + yRand;
 
-                            if (sampleColor) {
-                                r += sampleColor.r;
-                                g += sampleColor.g;
-                                b += sampleColor.b;
-                            }
+                        const sampleColor = this._computeColorAtPos(xJitterPos, yJitterPos);
+
+                        if (sampleColor) {
+                            r += sampleColor.r;
+                            g += sampleColor.g;
+                            b += sampleColor.b;
                         }
                     }
-
-                    resultColor = new Color(r / 16, g / 16, b / 16);
-                } else {
-                    resultColor = this._computeColorAtPos(x, y);
                 }
 
-                this.context.fillStyle = resultColor.toHexString();
-                this.context.fillRect(x, y, 1, 1);
+                resultColor = new Color(r / 16, g / 16, b / 16);
+            } else {
+                resultColor = this._computeColorAtPos(x, y);
             }
+
+            this.context.fillStyle = resultColor.toHexString();
+            this.context.fillRect(x, y, 1, 1);
         }
+
+        setTimeout(() => {
+            this._renderRow(y + 1);
+        }, 0);
     }
 
     _shade(intersect) {
@@ -133,6 +142,13 @@ module.exports = class Renderer {
                 r += mat.r * cosTheta;
                 g += mat.g * cosTheta;
                 b += mat.b * cosTheta;
+            }
+
+            const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
+            if (specularCos > 0.9) {
+                r += 0.5 * Math.pow(specularCos, 2);
+                g += 0.5 * Math.pow(specularCos, 2);
+                b += 0.5 * Math.pow(specularCos, 2);
             }
         }
 
@@ -163,11 +179,6 @@ module.exports = class Renderer {
             if (intersect && (intersect.t < minT)) {
                 minT = intersect.t;
                 color = this._shade(intersect);
-                // color = new Color(
-                //     (intersect.normal.x + 1) / 2, 
-                //     (intersect.normal.y + 1) / 2, 
-                //     (intersect.normal.z + 1) / 2
-                // )
             }
         }
 

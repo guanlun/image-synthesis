@@ -78,10 +78,20 @@ module.exports = class QuadraticShape {
 			Vec3.scalarProd(this.a21 / this.s2, this.n2)
 		));
 
+		const reflDir = Vec3.normalize(
+			Vec3.subtract(ray.dir, 
+				Vec3.scalarProd(
+					2 * Vec3.dot(ray.dir, normal),
+					normal
+				)
+			)
+		);
+
 		return {
 			t: t,
 			intersectionPoint: intersectionPoint,
 			normal: normal,
+			reflDir: reflDir,
 			obj: this,
 		}
 	}
