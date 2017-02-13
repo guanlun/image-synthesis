@@ -10,6 +10,8 @@ const Light = require('./Light');
 
 const antialiasing = false;
 
+const toon = false;
+
 const shapes = [
     // cylinder
     new QuadraticShape(
@@ -43,7 +45,7 @@ const shapes = [
     ),
     // left plane
     new QuadraticShape(
-        new Color(1, 0.7, 0.7),
+        new Color(1, 0.5, 0.5),
         new Vec3(-3, 0, 0),
         new Vec3(0, 0, 0),
         new Vec3(1, 0, 0),
@@ -53,7 +55,7 @@ const shapes = [
     ),
     // right plane
     new QuadraticShape(
-        new Color(0.7, 1, 0.7),
+        new Color(0.5, 1, 0.5),
         new Vec3(3, 0, 0),
         new Vec3(0, 0, 0),
         new Vec3(-1, 0, 0),
@@ -156,7 +158,6 @@ module.exports = class Renderer {
 
     _shade(intersect) {
         const mat = intersect.obj.color;
-
         let r = 0.1, g = 0.1, b = 0.1;
 
         for (let light of lights) {
@@ -174,6 +175,16 @@ module.exports = class Renderer {
                 r += 1 * Math.pow(specularCos, 45);
                 g += 1 * Math.pow(specularCos, 45);
                 b += 1 * Math.pow(specularCos, 45);
+            }
+        }
+
+        if (toon) {
+            const cosViewNormal = Vec3.dot(intersect.rayDir, intersect.normal);
+
+            if (Math.abs(cosViewNormal) < 0.3) {
+                r *= 0.5;
+                g *= 0.5;
+                b *= 0.5;
             }
         }
 

@@ -89,6 +89,7 @@ module.exports = class QuadraticShape {
 
 		return {
 			t: t,
+			rayDir: ray.dir,
 			intersectionPoint: intersectionPoint,
 			normal: normal,
 			reflDir: reflDir,
