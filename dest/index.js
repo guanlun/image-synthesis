@@ -58,8 +58,10 @@ module.exports = class Color {
 const Light = require('./Light');
 
 module.exports = class DirectionalLight extends Light {
-	constructor(color, intensity) {
+	constructor(direction, color, intensity) {
 		super(color, intensity);
+
+		this.direction = direction;
 	}
 }
 },{"./Light":4}],4:[function(require,module,exports){
@@ -70,21 +72,24 @@ module.exports = class Light {
 	}
 }
 },{}],5:[function(require,module,exports){
+const Vec3 = require('./Vec3');
 const Light = require('./Light');
 
 module.exports = class PointSpotLight extends Light {
-	constructor(position, color, intensity) {
+	constructor(position, direction, color, intensity) {
 		super(color, intensity);
 
 		this.position = position;
+
+		this.direction = Vec3.normalize(direction);
 	}
 }
-},{"./Light":4}],6:[function(require,module,exports){
+},{"./Light":4,"./Vec3":11}],6:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
-	constructor(color, pCenter, p0, p1, v1, s0, s1, s2, a02, a12, a22, a21, a00) {
-		this.color = color;
+	constructor(mat, pCenter, p0, p1, v1, s0, s1, s2, a02, a12, a22, a21, a00) {
+		this.mat = mat;
 		this.pCenter = pCenter;
 
 		const v2 = Vec3.subtract(p1, p0);
@@ -193,9 +198,6 @@ const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const Scene = require('./Scene');
 const Ray = require('./Ray');
-const antialiasing = false;
-
-const toon = false;
 
 module.exports = class Renderer {
     constructor(canvasElement) {
@@ -207,14 +209,26 @@ module.exports = class Renderer {
         this.canvas.addEventListener('click', (evt) => {
             this._computeColorAtPos(evt.offsetX, evt.offsetY, true);
         });
+
+        this.rendering = false;
+
+        this.antialiasing = false;
+        this.toon = false;
     }
 
     render() {
-        this._renderRow(0);
+        if (!this.rendering) {
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            this.rendering = true;
+
+            this._renderRow(0);
+        }
     }
 
     _renderRow(y) {
         if (y >= this.canvas.height) {
+            this.rendering = false;
             return;
         }
         for (let x = 0; x < this.canvas.width; x++) {
@@ -223,7 +237,7 @@ module.exports = class Renderer {
 
             let resultColor;
 
-            if (antialiasing) {
+            if (this.antialiasing) {
                 let r = 0, g = 0, b = 0;
 
                 for (let yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
@@ -256,7 +270,7 @@ module.exports = class Renderer {
     }
 
     _shade(intersect) {
-        const mat = intersect.obj.color;
+        const mat = intersect.obj.mat;
         let r = 0.1, g = 0.1, b = 0.1;
 
         for (let light of Scene.lights) {
@@ -264,20 +278,28 @@ module.exports = class Renderer {
             const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 
             if (cosTheta > 0) {
-                r += mat.r * cosTheta;
-                g += mat.g * cosTheta;
-                b += mat.b * cosTheta;
+                r += light.intensity * mat.kDiffuse.r * light.color.r * cosTheta;
+                g += light.intensity * mat.kDiffuse.g * light.color.g * cosTheta;
+                b += light.intensity * mat.kDiffuse.b * light.color.b * cosTheta;
             }
 
             const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
             if (specularCos > 0) {
-                r += 0.25 * Math.pow(specularCos, 25);
-                g += 0.25 * Math.pow(specularCos, 25);
-                b += 0.25 * Math.pow(specularCos, 25);
+                r += light.intensity * mat.kDiffuse.r * light.color.r * Math.pow(specularCos, mat.nSpecular);
+                g += light.intensity * mat.kDiffuse.g * light.color.g * Math.pow(specularCos, mat.nSpecular);
+                b += light.intensity * mat.kDiffuse.b * light.color.b * Math.pow(specularCos, mat.nSpecular);
             }
+
+            // const pointLightCos = -Vec3.dot(light.direction, pToLight);
+
+            // if (pointLightCos < 1) {
+            //     r *= pointLightCos;
+            //     g *= pointLightCos;
+            //     b *= pointLightCos;
+            // }
         }
 
-        if (toon) {
+        if (this.toon) {
             const cosViewNormal = Vec3.dot(intersect.rayDir, intersect.normal);
 
             if (Math.abs(cosViewNormal) < 0.3) {
@@ -334,11 +356,32 @@ const Camera = require('./Camera');
 const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
 
-module.exports = {
-    shapes: [
+const shinyBlueMat = {
+	kAmbient: new Color(0.5, 0.5, 1),
+	kDiffuse: new Color(0.5, 0.5, 1),
+	kSpecular: new Color(1, 1, 1),
+	nSpecular: 10,
+};
+
+const dullRedMat = {
+	kAmbient: new Color(1, 0.5, 0.5),
+	kDiffuse: new Color(1, 0.5, 0.5),
+	kSpecular: new Color(0.2, 0.1, 0.1),
+	nSpecular: 100,
+};
+
+const shinyGreyMat = {
+	kAmbient: new Color(0.6, 0.6, 0.6),
+	kDiffuse: new Color(0.6, 0.6, 0.6),
+	kSpecular: new Color(0.6, 0.6, 0.6),
+	nSpecular: 20,
+};
+
+const scene1 = {
+	shapes: [
 	    // cylinder
 	    new QuadraticShape(
-	        new Color(0.9, 0.9, 0.9),
+	        shinyGreyMat,
 	        new Vec3(1.6, 1, 4),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 1, 0),
@@ -348,7 +391,7 @@ module.exports = {
 	    ),
 	    // sphere
 	    new QuadraticShape(
-	        new Color(0.5, 0.6, 1),
+	        shinyBlueMat,
 	        new Vec3(-1, -1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -358,7 +401,7 @@ module.exports = {
 	    ),
 	    // bottom plane
 	    new QuadraticShape(
-	        new Color(0.8, 0.8, 0.8),
+	        shinyGreyMat,
 	        new Vec3(0, -2, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 1, 0),
@@ -368,7 +411,7 @@ module.exports = {
 	    ),
 	    // left plane
 	    new QuadraticShape(
-	        new Color(1, 0.5, 0.5),
+	        dullRedMat,
 	        new Vec3(-3, 0, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(1, 0, 0),
@@ -378,7 +421,7 @@ module.exports = {
 	    ),
 	    // right plane
 	    new QuadraticShape(
-	        new Color(0.5, 1, 0.5),
+	        dullRedMat,
 	        new Vec3(3, 0, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(-1, 0, 0),
@@ -388,7 +431,7 @@ module.exports = {
 	    ),
 	    // back plane
 	    new QuadraticShape(
-	        new Color(0.8, 0.8, 0.8),
+	        shinyGreyMat,
 	        new Vec3(0, 0, 5),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -398,8 +441,7 @@ module.exports = {
 	    ),
 	    // top plane
 	    new QuadraticShape(
-	        new Color(0.8, 0.8, 0.8),
-	        // new Color(1, 0, 0),
+	        shinyGreyMat,
 	        new Vec3(0, 3, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, -1, 0),
@@ -409,10 +451,10 @@ module.exports = {
 	    ),
 	],
 
-
 	lights: [
 	    new PointSpotLight(
 	        new Vec3(0, 2, 2),
+	        new Vec3(-1, -1, 0),
 	        new Color(1, 1, 1),
 	        1
 	    ),
@@ -424,7 +466,62 @@ module.exports = {
 	    new Vec3(0, 1, 0),
 	    1
 	),
-}
+};
+
+const scene2 = {
+	shapes: [
+	    // sphere
+	    new QuadraticShape(
+	        shinyBlueMat,
+	        new Vec3(-1, -1, 4),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1.2, 1.2, 1.2,
+	        1, 1, 1, 0, -1
+	    ),
+
+	    // sphere
+	    new QuadraticShape(
+	        dullRedMat,
+	        new Vec3(1, 1, 6),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1, 1, 1,
+	        1, 1, 1, 0, -1
+	    ),
+
+	    // back plane
+	    new QuadraticShape(
+	        shinyGreyMat,
+	        new Vec3(0, 0, 10),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 0, -1),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	],
+
+	lights: [
+	    new PointSpotLight(
+	        new Vec3(0, 2, 2),
+	        new Vec3(-1, -1, 0),
+	        new Color(1, 1, 1),
+	        1
+	    ),
+	],
+
+	camera: new Camera(
+	    new Vec3(0, 0, -1),
+	    new Vec3(0, 0, 1),
+	    new Vec3(0, 1, 0),
+	    1
+	),
+};
+
+module.exports = scene2;
 
 },{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./PointSpotLight":5,"./QuadraticShape":6,"./Shape":10,"./Vec3":11}],10:[function(require,module,exports){
 const Vec3 = require('./Vec3');
@@ -502,6 +599,14 @@ window.onload = () => {
 
     const renderer = new Renderer(canvasEl);
     renderer.render();
+
+	$('#antialiasing-toggle').bootstrapSwitch({
+		onSwitchChange: (evt, state) => {
+			renderer.antialiasing = state;
+		}
+	});
+
+	$('#rerender-button').click(() => renderer.render());
 }
 
 },{"./Renderer":8}]},{},[12]);

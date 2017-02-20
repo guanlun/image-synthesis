@@ -2,9 +2,6 @@ const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const Scene = require('./Scene');
 const Ray = require('./Ray');
-const antialiasing = false;
-
-const toon = false;
 
 module.exports = class Renderer {
     constructor(canvasElement) {
@@ -16,14 +13,26 @@ module.exports = class Renderer {
         this.canvas.addEventListener('click', (evt) => {
             this._computeColorAtPos(evt.offsetX, evt.offsetY, true);
         });
+
+        this.rendering = false;
+
+        this.antialiasing = false;
+        this.toon = false;
     }
 
     render() {
-        this._renderRow(0);
+        if (!this.rendering) {
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            this.rendering = true;
+
+            this._renderRow(0);
+        }
     }
 
     _renderRow(y) {
         if (y >= this.canvas.height) {
+            this.rendering = false;
             return;
         }
         for (let x = 0; x < this.canvas.width; x++) {
@@ -32,7 +41,7 @@ module.exports = class Renderer {
 
             let resultColor;
 
-            if (antialiasing) {
+            if (this.antialiasing) {
                 let r = 0, g = 0, b = 0;
 
                 for (let yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
@@ -65,7 +74,7 @@ module.exports = class Renderer {
     }
 
     _shade(intersect) {
-        const mat = intersect.obj.color;
+        const mat = intersect.obj.mat;
         let r = 0.1, g = 0.1, b = 0.1;
 
         for (let light of Scene.lights) {
@@ -73,20 +82,28 @@ module.exports = class Renderer {
             const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 
             if (cosTheta > 0) {
-                r += mat.r * cosTheta;
-                g += mat.g * cosTheta;
-                b += mat.b * cosTheta;
+                r += light.intensity * mat.kDiffuse.r * light.color.r * cosTheta;
+                g += light.intensity * mat.kDiffuse.g * light.color.g * cosTheta;
+                b += light.intensity * mat.kDiffuse.b * light.color.b * cosTheta;
             }
 
             const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
             if (specularCos > 0) {
-                r += 0.25 * Math.pow(specularCos, 25);
-                g += 0.25 * Math.pow(specularCos, 25);
-                b += 0.25 * Math.pow(specularCos, 25);
+                r += light.intensity * mat.kDiffuse.r * light.color.r * Math.pow(specularCos, mat.nSpecular);
+                g += light.intensity * mat.kDiffuse.g * light.color.g * Math.pow(specularCos, mat.nSpecular);
+                b += light.intensity * mat.kDiffuse.b * light.color.b * Math.pow(specularCos, mat.nSpecular);
             }
+
+            // const pointLightCos = -Vec3.dot(light.direction, pToLight);
+
+            // if (pointLightCos < 1) {
+            //     r *= pointLightCos;
+            //     g *= pointLightCos;
+            //     b *= pointLightCos;
+            // }
         }
 
-        if (toon) {
+        if (this.toon) {
             const cosViewNormal = Vec3.dot(intersect.rayDir, intersect.normal);
 
             if (Math.abs(cosViewNormal) < 0.3) {

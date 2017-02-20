@@ -3,9 +3,32 @@
 <head>
     <meta charset="utf-8" />
     <title>Image Synthesis</title>
+    <link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap-switch.min.css">
+    <script src="jquery-3.1.1.min.js"></script>
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+    <script src="bootstrap/js/bootstrap-switch.min.js"></script>
     <script src="dest/index.js"></script>
 </head>
 <body>
-    <canvas id="canvas" width="640" height="480"></canvas>
+	<div class="container">
+		<div class="row">
+			<div class="col-sm-2">Antialiasing:</div>
+			<div class="col-sm-10">
+				<input id="antialiasing-toggle" type="checkbox">
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-sm-2"></div>
+			<div class="col-sm-10">
+				<button id="rerender-button" class="btn btn-default">Re-render</button>
+			</div>
+		</div>
+
+		<div class="row">
+	    	<canvas id="canvas" width="640" height="480"></canvas>
+		</div>
+	</div>
 </body>
 </html>
