@@ -6,6 +6,8 @@ window.onload = () => {
     const renderer = new Renderer(canvasEl);
     renderer.render();
 
+    $('#rerender-button').click(() => renderer.render());
+
 	$('#antialiasing-toggle').bootstrapSwitch({
 		onSwitchChange: (evt, state) => {
 			renderer.antialiasing = state;
@@ -18,5 +20,10 @@ window.onload = () => {
 		}
 	});
 
-	$('#rerender-button').click(() => renderer.render());
+    $('#scene-select').change((evt) => {
+        const selectedIdx = $('#scene-select').val();
+        renderer.selectScene(parseInt(selectedIdx) - 1);
+    })
+
+
 }

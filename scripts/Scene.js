@@ -7,24 +7,51 @@ const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
 
 const shinyBlueMat = {
-	kAmbient: new Color(0.5, 0.5, 1),
+	kAmbient: new Color(0.1, 0.1, 0.2),
 	kDiffuse: new Color(0.5, 0.5, 1),
-	kSpecular: new Color(1, 1, 1),
-	nSpecular: 10,
+	kSpecular: new Color(0.3, 0.3, 0.6),
+	nSpecular: 20,
+	specularThreshold: 0.8,
+};
+
+const shinyRedMat = {
+	kAmbient: new Color(0.2, 0.1, 0.1),
+	kDiffuse: new Color(1, 0.5, 0.5),
+	kSpecular: new Color(1, 0.5, 0.5),
+	nSpecular: 5,
+	specularThreshold: 0.95,
 };
 
 const dullRedMat = {
-	kAmbient: new Color(1, 0.5, 0.5),
+	kAmbient: new Color(0.2, 0.1, 0.1),
 	kDiffuse: new Color(1, 0.5, 0.5),
 	kSpecular: new Color(0.2, 0.1, 0.1),
 	nSpecular: 100,
+	specularThreshold: 0.8,
 };
 
+const dullGreenMat = {
+	kAmbient: new Color(0.1, 0.2, 0.1),
+	kDiffuse: new Color(0.5, 1, 0.5),
+	kSpecular: new Color(0.1, 0.2, 0.1),
+	nSpecular: 100,
+	specularThreshold: 0.8,
+};
+
+const dullGreyMat = {
+	kAmbient: new Color(0.1, 0.1, 0.1),
+	kDiffuse: new Color(0.6, 0.6, 0.6),
+	kSpecular: new Color(0.1, 0.1, 0.1),
+	nSpecular: 100,
+	specularThreshold: 0.8,
+}
+
 const shinyGreyMat = {
-	kAmbient: new Color(0.6, 0.6, 0.6),
+	kAmbient: new Color(0.1, 0.1, 0.1),
 	kDiffuse: new Color(0.6, 0.6, 0.6),
 	kSpecular: new Color(0.6, 0.6, 0.6),
 	nSpecular: 20,
+	specularThreshold: 0.8,
 };
 
 const scene1 = {
@@ -71,7 +98,7 @@ const scene1 = {
 	    ),
 	    // right plane
 	    new QuadraticShape(
-	        dullRedMat,
+	        dullGreenMat,
 	        new Vec3(3, 0, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(-1, 0, 0),
@@ -103,8 +130,10 @@ const scene1 = {
 
 	lights: [
 	    new PointSpotLight(
-	        new Vec3(0, 2, 2),
-	        new Vec3(-1, -1, 0),
+	        new Vec3(1, 4, -2),
+	        new Vec3(-1, -2, 2),
+			0,
+			1,
 	        new Color(1, 1, 1),
 	        1
 	    ),
@@ -144,7 +173,7 @@ const scene2 = {
 
 	    // back plane
 	    new QuadraticShape(
-	        shinyGreyMat,
+	        dullGreyMat,
 	        new Vec3(0, 0, 10),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -162,6 +191,14 @@ const scene2 = {
 			0.8,
 	        new Color(1, 1, 1),
 	        1
+	    ),
+		new PointSpotLight(
+	        new Vec3(-3, 3, -1),
+	        new Vec3(0.7, -0.8, 1),
+			0.95,
+			0.1,
+	        new Color(1, 1, 1),
+	        0.3
 	    ),
 	],
 
@@ -188,18 +225,18 @@ const scene3 = {
 
 	    // sphere
 	    new QuadraticShape(
-	        dullRedMat,
+	        shinyRedMat,
 	        new Vec3(1, 1, 6),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
 	        new Vec3(1, 0, 0),
-	        1, 1, 1,
+	        1.5, 1.5, 1.5,
 	        1, 1, 1, 0, -1
 	    ),
 
 	    // back plane
 	    new QuadraticShape(
-	        shinyGreyMat,
+	        dullGreyMat,
 	        new Vec3(0, 0, 10),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -225,4 +262,4 @@ const scene3 = {
 	),
 };
 
-module.exports = scene3;
+module.exports = [scene1, scene2, scene3];

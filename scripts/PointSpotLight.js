@@ -2,6 +2,8 @@ const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
 
+const daCoeff = 0.005;
+
 module.exports = class PointSpotLight extends Light {
 	constructor(position, direction, angleCos, dropoffCoeff, color, intensity) {
 		super(color, intensity);
@@ -17,6 +19,10 @@ module.exports = class PointSpotLight extends Light {
 
 		const mat = intersect.obj.mat;
 
+		r += 0.4 * this.intensity * mat.kAmbient.r * this.color.r;
+		g += 0.4 * this.intensity * mat.kAmbient.g * this.color.g;
+		b += 0.4 * this.intensity * mat.kAmbient.b * this.color.b;
+
 		const pToLight = Vec3.subtract(this.position, intersect.intersectionPoint);
 
 		const pointLightCos = -Vec3.dot(this.direction, pToLight) / pToLight.magnitude();
@@ -24,27 +30,28 @@ module.exports = class PointSpotLight extends Light {
 		if (pointLightCos < this.angleCos) {
 			// do nothing
 		} else {
-			const distAngle = 1 - this.angleCos;
-			const cutoff = 1 - distAngle * (1 - this.dropoffCoeff);
-			const spotLightAttenutation = 1 - Math.max(cutoff - pointLightCos, 0) / (distAngle * this.dropoffCoeff);
+			const diffAngle = 1 - this.angleCos;
+			const cutoff = 1 - diffAngle * (1 - this.dropoffCoeff);
+			const spotLightAttenutation = 1 - Math.max(cutoff - pointLightCos, 0) / (diffAngle * this.dropoffCoeff);
+
+			const lightDist = pToLight.magnitude();
+			const distanceAttenuation = 1 / (1 + daCoeff * lightDist + daCoeff * lightDist * lightDist);
+
+			const coeff = spotLightAttenutation * distanceAttenuation;
 
 			const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 			if (cosTheta > 0) {
-				r += this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
-				g += this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
-				b += this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+				r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
+				g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
+				b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
 			}
 
 			const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
 			if (specularCos > 0) {
-				r += this.intensity * mat.kDiffuse.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
-				g += this.intensity * mat.kDiffuse.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
-				b += this.intensity * mat.kDiffuse.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
+				r += coeff * this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
+				g += coeff * this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
+				b += coeff * this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
 			}
-
-			r *= spotLightAttenutation;
-			g *= spotLightAttenutation;
-			b *= spotLightAttenutation;
 		}
 
 		return new Color(r, g, b);

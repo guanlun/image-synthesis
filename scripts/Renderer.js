@@ -5,6 +5,8 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
+        this.selectScene(0);
+
         this.canvas = canvasElement;
 
         this.context = this.canvas.getContext('2d');
@@ -18,6 +20,10 @@ module.exports = class Renderer {
 
         this.antialiasing = false;
         this.silhouetteRendering = false;
+    }
+
+    selectScene(idx) {
+        this.scene = Scene[idx];
     }
 
     render() {
@@ -75,9 +81,9 @@ module.exports = class Renderer {
     }
 
     _shade(intersect) {
-        let r = 0.1, g = 0.1, b = 0.1;
+        let r = 0, g = 0, b = 0;
 
-        for (let light of Scene.lights) {
+        for (let light of this.scene.lights) {
             const color = light.shade(intersect);
 
             r += color.r;
@@ -88,10 +94,10 @@ module.exports = class Renderer {
         if (this.silhouetteRendering) {
             const cosViewNormal = Vec3.dot(intersect.rayDir, intersect.normal);
 
-            if (Math.abs(cosViewNormal) < 0.3) {
-                r *= 0.5;
-                g *= 0.5;
-                b *= 0.5;
+            if (Math.abs(cosViewNormal) < 0.4) {
+                r = 0;
+                g = 0;
+                b = 0;
             }
         }
 
@@ -109,12 +115,12 @@ module.exports = class Renderer {
         const xPos = -crossPlaneWidth / 2 + x * ratio;
         const yPos = -crossPlaneHeight / 2 + y * ratio;
 
-        const ray = Scene.camera.createRay(xPos, yPos);
+        const ray = this.scene.camera.createRay(xPos, yPos);
 
         let color;
         let minT = Number.MAX_VALUE;
 
-        for (let shape of Scene.shapes) {
+        for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray);
             if (debug) {
                 console.log(shape, intersect);
