@@ -156,8 +156,10 @@ const scene2 = {
 
 	lights: [
 	    new PointSpotLight(
-	        new Vec3(0, 2, 2),
-	        new Vec3(-1, -1, 0),
+	        new Vec3(2, 2, -2),
+	        new Vec3(-0.5, -0.5, 1),
+			0.9,
+			0.8,
 	        new Color(1, 1, 1),
 	        1
 	    ),
@@ -171,4 +173,56 @@ const scene2 = {
 	),
 };
 
-module.exports = scene2;
+const scene3 = {
+	shapes: [
+	    // sphere
+	    new QuadraticShape(
+	        shinyBlueMat,
+	        new Vec3(-1, -1, 4),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1.2, 1.2, 1.2,
+	        1, 1, 1, 0, -1
+	    ),
+
+	    // sphere
+	    new QuadraticShape(
+	        dullRedMat,
+	        new Vec3(1, 1, 6),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1, 1, 1,
+	        1, 1, 1, 0, -1
+	    ),
+
+	    // back plane
+	    new QuadraticShape(
+	        shinyGreyMat,
+	        new Vec3(0, 0, 10),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 0, -1),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	],
+
+	lights: [
+	    new DirectionalLight(
+	        new Vec3(-0.5, -0.5, 1),
+	        new Color(1, 1, 1),
+	        1
+	    ),
+	],
+
+	camera: new Camera(
+	    new Vec3(0, 0, -1),
+	    new Vec3(0, 0, 1),
+	    new Vec3(0, 1, 0),
+	    1
+	),
+};
+
+module.exports = scene3;

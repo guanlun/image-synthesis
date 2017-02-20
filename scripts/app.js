@@ -12,5 +12,11 @@ window.onload = () => {
 		}
 	});
 
+    $('#silhouette-toggle').bootstrapSwitch({
+		onSwitchChange: (evt, state) => {
+			renderer.silhouetteRendering = state;
+		}
+	});
+
 	$('#rerender-button').click(() => renderer.render());
 }

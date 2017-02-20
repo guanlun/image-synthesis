@@ -3,4 +3,5 @@ module.exports = class Light {
 		this.color = color;
 		this.intensity = intensity;
 	}
+
 }

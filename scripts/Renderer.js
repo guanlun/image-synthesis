@@ -17,7 +17,7 @@ module.exports = class Renderer {
         this.rendering = false;
 
         this.antialiasing = false;
-        this.toon = false;
+        this.silhouetteRendering = false;
     }
 
     render() {
@@ -35,6 +35,7 @@ module.exports = class Renderer {
             this.rendering = false;
             return;
         }
+
         for (let x = 0; x < this.canvas.width; x++) {
             const xRand = Math.random() * 0.25;
             const yRand = Math.random() * 0.25;
@@ -74,36 +75,17 @@ module.exports = class Renderer {
     }
 
     _shade(intersect) {
-        const mat = intersect.obj.mat;
         let r = 0.1, g = 0.1, b = 0.1;
 
         for (let light of Scene.lights) {
-            const pToLight = Vec3.subtract(light.position, intersect.intersectionPoint);
-            const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
+            const color = light.shade(intersect);
 
-            if (cosTheta > 0) {
-                r += light.intensity * mat.kDiffuse.r * light.color.r * cosTheta;
-                g += light.intensity * mat.kDiffuse.g * light.color.g * cosTheta;
-                b += light.intensity * mat.kDiffuse.b * light.color.b * cosTheta;
-            }
-
-            const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
-            if (specularCos > 0) {
-                r += light.intensity * mat.kDiffuse.r * light.color.r * Math.pow(specularCos, mat.nSpecular);
-                g += light.intensity * mat.kDiffuse.g * light.color.g * Math.pow(specularCos, mat.nSpecular);
-                b += light.intensity * mat.kDiffuse.b * light.color.b * Math.pow(specularCos, mat.nSpecular);
-            }
-
-            // const pointLightCos = -Vec3.dot(light.direction, pToLight);
-
-            // if (pointLightCos < 1) {
-            //     r *= pointLightCos;
-            //     g *= pointLightCos;
-            //     b *= pointLightCos;
-            // }
+            r += color.r;
+            g += color.g;
+            b += color.b;
         }
 
-        if (this.toon) {
+        if (this.silhouetteRendering) {
             const cosViewNormal = Vec3.dot(intersect.rayDir, intersect.normal);
 
             if (Math.abs(cosViewNormal) < 0.3) {

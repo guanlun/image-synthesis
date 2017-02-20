@@ -55,36 +55,103 @@ module.exports = class Color {
 }
 
 },{}],3:[function(require,module,exports){
+const Vec3 = require('./Vec3');
 const Light = require('./Light');
+const Color = require('./Color');
 
 module.exports = class DirectionalLight extends Light {
 	constructor(direction, color, intensity) {
 		super(color, intensity);
 
-		this.direction = direction;
+		this.direction = Vec3.normalize(direction);
+	}
+
+	shade(intersect) {
+		let r = 0, g = 0, b = 0;
+
+		const mat = intersect.obj.mat;
+		const cosTheta = -Vec3.dot(intersect.normal, this.direction);
+		if (cosTheta > 0) {
+			r += this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
+			g += this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
+			b += this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+		}
+
+		const specularCos = -Vec3.dot(intersect.reflDir, this.direction);
+		if (specularCos > 0) {
+			r += this.intensity * mat.kDiffuse.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
+			g += this.intensity * mat.kDiffuse.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
+			b += this.intensity * mat.kDiffuse.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
+		}
+
+		return new Color(r, g, b);
 	}
 }
-},{"./Light":4}],4:[function(require,module,exports){
+
+},{"./Color":2,"./Light":4,"./Vec3":11}],4:[function(require,module,exports){
 module.exports = class Light {
 	constructor(color, intensity) {
 		this.color = color;
 		this.intensity = intensity;
 	}
+
 }
+
 },{}],5:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
+const Color = require('./Color');
 
 module.exports = class PointSpotLight extends Light {
-	constructor(position, direction, color, intensity) {
+	constructor(position, direction, angleCos, dropoffCoeff, color, intensity) {
 		super(color, intensity);
 
 		this.position = position;
-
+		this.angleCos = angleCos;
+		this.dropoffCoeff = dropoffCoeff;
 		this.direction = Vec3.normalize(direction);
 	}
+
+	shade(intersect) {
+		let r = 0, g = 0, b = 0;
+
+		const mat = intersect.obj.mat;
+
+		const pToLight = Vec3.subtract(this.position, intersect.intersectionPoint);
+
+		const pointLightCos = -Vec3.dot(this.direction, pToLight) / pToLight.magnitude();
+
+		if (pointLightCos < this.angleCos) {
+			// do nothing
+		} else {
+			const distAngle = 1 - this.angleCos;
+			const cutoff = 1 - distAngle * (1 - this.dropoffCoeff);
+			const spotLightAttenutation = 1 - Math.max(cutoff - pointLightCos, 0) / (distAngle * this.dropoffCoeff);
+
+			const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
+			if (cosTheta > 0) {
+				r += this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
+				g += this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
+				b += this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+			}
+
+			const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
+			if (specularCos > 0) {
+				r += this.intensity * mat.kDiffuse.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
+				g += this.intensity * mat.kDiffuse.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
+				b += this.intensity * mat.kDiffuse.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
+			}
+
+			r *= spotLightAttenutation;
+			g *= spotLightAttenutation;
+			b *= spotLightAttenutation;
+		}
+
+		return new Color(r, g, b);
+	}
 }
-},{"./Light":4,"./Vec3":11}],6:[function(require,module,exports){
+
+},{"./Color":2,"./Light":4,"./Vec3":11}],6:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
@@ -213,7 +280,7 @@ module.exports = class Renderer {
         this.rendering = false;
 
         this.antialiasing = false;
-        this.toon = false;
+        this.silhouetteRendering = false;
     }
 
     render() {
@@ -231,6 +298,7 @@ module.exports = class Renderer {
             this.rendering = false;
             return;
         }
+
         for (let x = 0; x < this.canvas.width; x++) {
             const xRand = Math.random() * 0.25;
             const yRand = Math.random() * 0.25;
@@ -270,36 +338,17 @@ module.exports = class Renderer {
     }
 
     _shade(intersect) {
-        const mat = intersect.obj.mat;
         let r = 0.1, g = 0.1, b = 0.1;
 
         for (let light of Scene.lights) {
-            const pToLight = Vec3.subtract(light.position, intersect.intersectionPoint);
-            const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
+            const color = light.shade(intersect);
 
-            if (cosTheta > 0) {
-                r += light.intensity * mat.kDiffuse.r * light.color.r * cosTheta;
-                g += light.intensity * mat.kDiffuse.g * light.color.g * cosTheta;
-                b += light.intensity * mat.kDiffuse.b * light.color.b * cosTheta;
-            }
-
-            const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
-            if (specularCos > 0) {
-                r += light.intensity * mat.kDiffuse.r * light.color.r * Math.pow(specularCos, mat.nSpecular);
-                g += light.intensity * mat.kDiffuse.g * light.color.g * Math.pow(specularCos, mat.nSpecular);
-                b += light.intensity * mat.kDiffuse.b * light.color.b * Math.pow(specularCos, mat.nSpecular);
-            }
-
-            // const pointLightCos = -Vec3.dot(light.direction, pToLight);
-
-            // if (pointLightCos < 1) {
-            //     r *= pointLightCos;
-            //     g *= pointLightCos;
-            //     b *= pointLightCos;
-            // }
+            r += color.r;
+            g += color.g;
+            b += color.b;
         }
 
-        if (this.toon) {
+        if (this.silhouetteRendering) {
             const cosViewNormal = Vec3.dot(intersect.rayDir, intersect.normal);
 
             if (Math.abs(cosViewNormal) < 0.3) {
@@ -506,8 +555,10 @@ const scene2 = {
 
 	lights: [
 	    new PointSpotLight(
-	        new Vec3(0, 2, 2),
-	        new Vec3(-1, -1, 0),
+	        new Vec3(2, 2, -2),
+	        new Vec3(-0.5, -0.5, 1),
+			0.9,
+			0.8,
 	        new Color(1, 1, 1),
 	        1
 	    ),
@@ -521,7 +572,59 @@ const scene2 = {
 	),
 };
 
-module.exports = scene2;
+const scene3 = {
+	shapes: [
+	    // sphere
+	    new QuadraticShape(
+	        shinyBlueMat,
+	        new Vec3(-1, -1, 4),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1.2, 1.2, 1.2,
+	        1, 1, 1, 0, -1
+	    ),
+
+	    // sphere
+	    new QuadraticShape(
+	        dullRedMat,
+	        new Vec3(1, 1, 6),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1, 1, 1,
+	        1, 1, 1, 0, -1
+	    ),
+
+	    // back plane
+	    new QuadraticShape(
+	        shinyGreyMat,
+	        new Vec3(0, 0, 10),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 0, -1),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	],
+
+	lights: [
+	    new DirectionalLight(
+	        new Vec3(-0.5, -0.5, 1),
+	        new Color(1, 1, 1),
+	        1
+	    ),
+	],
+
+	camera: new Camera(
+	    new Vec3(0, 0, -1),
+	    new Vec3(0, 0, 1),
+	    new Vec3(0, 1, 0),
+	    1
+	),
+};
+
+module.exports = scene3;
 
 },{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./PointSpotLight":5,"./QuadraticShape":6,"./Shape":10,"./Vec3":11}],10:[function(require,module,exports){
 const Vec3 = require('./Vec3');
@@ -603,6 +706,12 @@ window.onload = () => {
 	$('#antialiasing-toggle').bootstrapSwitch({
 		onSwitchChange: (evt, state) => {
 			renderer.antialiasing = state;
+		}
+	});
+
+    $('#silhouette-toggle').bootstrapSwitch({
+		onSwitchChange: (evt, state) => {
+			renderer.silhouetteRendering = state;
 		}
 	});
 
