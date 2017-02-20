@@ -1,102 +1,10 @@
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
-const QuadraticShape = require('./QuadraticShape');
-const Sphere = require('./Sphere');
-const Plane = require('./Plane');
-const Cylinder = require('./Cylinder');
-const Camera = require('./Camera');
+const Scene = require('./Scene');
 const Ray = require('./Ray');
-const Light = require('./Light');
-
 const antialiasing = false;
 
 const toon = false;
-
-const shapes = [
-    // cylinder
-    new QuadraticShape(
-        new Color(0.9, 0.9, 0.9),
-        new Vec3(1.6, 1, 4),
-        new Vec3(0, 0, 0),
-        new Vec3(0, 1, 0),
-        new Vec3(1, 0, 0),
-        0.5, 0.5, 0.5,
-        1, 1, 0, 0, -1
-    ),
-    // sphere
-    new QuadraticShape(
-        new Color(0.7, 0.8, 1),
-        new Vec3(-1, -1, 4),
-        new Vec3(0, 0, 1),
-        new Vec3(0, 1, 0),
-        new Vec3(1, 0, 0),
-        1.2, 1.2, 1.2,
-        1, 1, 1, 0, -1
-    ),
-    // bottom plane
-    new QuadraticShape(
-        new Color(0.7, 0.7, 0.7),
-        new Vec3(0, -2, 0),
-        new Vec3(0, 0, 0),
-        new Vec3(0, 1, 0),
-        new Vec3(1, 0, 0),
-        1, 1, 1,
-        0, 0, 0, 1, 0
-    ),
-    // left plane
-    new QuadraticShape(
-        new Color(1, 0.5, 0.5),
-        new Vec3(-3, 0, 0),
-        new Vec3(0, 0, 0),
-        new Vec3(1, 0, 0),
-        new Vec3(0, 1, 0),
-        1, 1, 1,
-        0, 0, 0, 1, 0
-    ),
-    // right plane
-    new QuadraticShape(
-        new Color(0.5, 1, 0.5),
-        new Vec3(3, 0, 0),
-        new Vec3(0, 0, 0),
-        new Vec3(-1, 0, 0),
-        new Vec3(0, 1, 0),
-        1, 1, 1,
-        0, 0, 0, 1, 0
-    ),
-    // back plane
-    new QuadraticShape(
-        new Color(0.7, 0.7, 0.7),
-        new Vec3(0, 0, 5),
-        new Vec3(0, 0, 0),
-        new Vec3(0, 0, -1),
-        new Vec3(0, 1, 0),
-        1, 1, 1,
-        0, 0, 0, 1, 0
-    ),
-    // top plane
-    new QuadraticShape(
-        new Color(0.7, 0.7, 0.7),
-        new Vec3(0, 3, 0),
-        new Vec3(0, 0, 0),
-        new Vec3(0, 1, 0),
-        new Vec3(1, 0, 0),
-        1, 1, 1,
-        0, 0, 0, 1, 0
-    ),
-];
-
-const lights = [
-    new Light(
-        new Vec3(0, 4, 1.5)
-    ),
-];
-
-const camera = new Camera(
-    new Vec3(0, 0, -1),
-    new Vec3(0, 0, 1),
-    new Vec3(0, 1, 0),
-    1
-);
 
 module.exports = class Renderer {
     constructor(canvasElement) {
@@ -160,7 +68,7 @@ module.exports = class Renderer {
         const mat = intersect.obj.color;
         let r = 0.1, g = 0.1, b = 0.1;
 
-        for (let light of lights) {
+        for (let light of Scene.lights) {
             const pToLight = Vec3.subtract(light.position, intersect.intersectionPoint);
             const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 
@@ -172,9 +80,9 @@ module.exports = class Renderer {
 
             const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
             if (specularCos > 0) {
-                r += 1 * Math.pow(specularCos, 45);
-                g += 1 * Math.pow(specularCos, 45);
-                b += 1 * Math.pow(specularCos, 45);
+                r += 0.25 * Math.pow(specularCos, 25);
+                g += 0.25 * Math.pow(specularCos, 25);
+                b += 0.25 * Math.pow(specularCos, 25);
             }
         }
 
@@ -202,12 +110,12 @@ module.exports = class Renderer {
         const xPos = -crossPlaneWidth / 2 + x * ratio;
         const yPos = -crossPlaneHeight / 2 + y * ratio;
 
-        const ray = camera.createRay(xPos, yPos);
+        const ray = Scene.camera.createRay(xPos, yPos);
 
         let color;
         let minT = Number.MAX_VALUE;
 
-        for (let shape of shapes) {
+        for (let shape of Scene.shapes) {
             const intersect = shape.intersect(ray);
             if (debug) {
                 console.log(shape, intersect);

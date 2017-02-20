@@ -1,5 +1,6 @@
 module.exports = class Light {
-	constructor(position) {
-		this.position = position;
+	constructor(color, intensity) {
+		this.color = color;
+		this.intensity = intensity;
 	}
 }
