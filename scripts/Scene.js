@@ -130,7 +130,7 @@ const scene1 = {
 
 	lights: [
 	    new PointSpotLight(
-	        new Vec3(1, 4, -2),
+	        new Vec3(1, 2.5, -2),
 	        new Vec3(-1, -2, 2),
 			0,
 			1,

@@ -105,6 +105,7 @@ module.exports = class Light {
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
+const Ray = require('./Ray');
 
 const daCoeff = 0.005;
 
@@ -118,8 +119,30 @@ module.exports = class PointSpotLight extends Light {
 		this.direction = Vec3.normalize(direction);
 	}
 
-	shade(intersect) {
+	shadowAttenuation(pos, sceneShapes, debug) {
+		const intersectToLight = Vec3.subtract(this.position, pos);
+		const shadowRay = new Ray(pos, intersectToLight);
+		const maxT = intersectToLight.magnitude();
+
+		for (let shape of sceneShapes) {
+			const intersect = shape.intersect(shadowRay);
+			if (intersect && (intersect.t > 0.01) && (intersect.t < maxT)) {
+				if (debug) {
+					console.log('shadow', intersect.t, maxT);
+				}
+				return true;
+			}
+		}
+	}
+
+	shade(intersect, sceneShapes, debug) {
 		let r = 0, g = 0, b = 0;
+
+		const pos = intersect.intersectionPoint;
+
+		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+			return new Color(0, 0, 0);
+		}
 
 		const mat = intersect.obj.mat;
 
@@ -127,7 +150,7 @@ module.exports = class PointSpotLight extends Light {
 		g += 0.4 * this.intensity * mat.kAmbient.g * this.color.g;
 		b += 0.4 * this.intensity * mat.kAmbient.b * this.color.b;
 
-		const pToLight = Vec3.subtract(this.position, intersect.intersectionPoint);
+		const pToLight = Vec3.subtract(this.position, pos);
 
 		const pointLightCos = -Vec3.dot(this.direction, pToLight) / pToLight.magnitude();
 
@@ -162,7 +185,7 @@ module.exports = class PointSpotLight extends Light {
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Vec3":11}],6:[function(require,module,exports){
+},{"./Color":2,"./Light":4,"./Ray":7,"./Vec3":11}],6:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
@@ -354,11 +377,11 @@ module.exports = class Renderer {
         }, 0);
     }
 
-    _shade(intersect) {
+    _shade(intersect, debug) {
         let r = 0, g = 0, b = 0;
 
         for (let light of this.scene.lights) {
-            const color = light.shade(intersect);
+            const color = light.shade(intersect, this.scene.shapes, debug);
 
             r += color.r;
             g += color.g;
@@ -396,12 +419,12 @@ module.exports = class Renderer {
 
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray);
-            if (debug) {
-                console.log(shape, intersect);
-            }
+            // if (debug) {
+            //     console.log(shape, intersect);
+            // }
             if (intersect && (intersect.t < minT)) {
                 minT = intersect.t;
-                color = this._shade(intersect);
+                color = this._shade(intersect, debug);
             }
         }
 
@@ -546,7 +569,7 @@ const scene1 = {
 
 	lights: [
 	    new PointSpotLight(
-	        new Vec3(1, 4, -2),
+	        new Vec3(1, 2.5, -2),
 	        new Vec3(-1, -2, 2),
 			0,
 			1,

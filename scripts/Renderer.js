@@ -80,11 +80,11 @@ module.exports = class Renderer {
         }, 0);
     }
 
-    _shade(intersect) {
+    _shade(intersect, debug) {
         let r = 0, g = 0, b = 0;
 
         for (let light of this.scene.lights) {
-            const color = light.shade(intersect);
+            const color = light.shade(intersect, this.scene.shapes, debug);
 
             r += color.r;
             g += color.g;
@@ -122,12 +122,12 @@ module.exports = class Renderer {
 
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray);
-            if (debug) {
-                console.log(shape, intersect);
-            }
+            // if (debug) {
+            //     console.log(shape, intersect);
+            // }
             if (intersect && (intersect.t < minT)) {
                 minT = intersect.t;
-                color = this._shade(intersect);
+                color = this._shade(intersect, debug);
             }
         }
 
