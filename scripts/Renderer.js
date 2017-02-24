@@ -5,7 +5,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(0);
+        this.selectScene(2);
 
         this.canvas = canvasElement;
 
@@ -119,17 +119,17 @@ module.exports = class Renderer {
 
         let color;
         let minT = Number.MAX_VALUE;
+        let closestIntersect;
 
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray);
-            // if (debug) {
-            //     console.log(shape, intersect);
-            // }
             if (intersect && (intersect.t < minT)) {
                 minT = intersect.t;
-                color = this._shade(intersect, debug);
+                closestIntersect = intersect;
             }
         }
+
+        color = this._shade(closestIntersect, debug);
 
         if (debug) {
             console.log('-------------------------------------');

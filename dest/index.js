@@ -58,6 +58,7 @@ module.exports = class Color {
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
+const Ray = require('./Ray');
 
 module.exports = class DirectionalLight extends Light {
 	constructor(direction, color, intensity) {
@@ -66,8 +67,24 @@ module.exports = class DirectionalLight extends Light {
 		this.direction = Vec3.normalize(direction);
 	}
 
-	shade(intersect) {
+	shadowAttenuation(pos, sceneShapes, debug) {
+		const shadowRay = new Ray(pos, Vec3.scalarProd(-1, this.direction));
+
+		for (let shape of sceneShapes) {
+			const intersect = shape.intersect(shadowRay);
+			if (intersect && (intersect.t > 0.01)) {
+				return true;
+			}
+		}
+	}
+
+	shade(intersect, sceneShapes, debug) {
 		let r = 0, g = 0, b = 0;
+
+		const pos = intersect.intersectionPoint;
+		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+			return new Color(0, 0, 0);
+		}
 
 		const mat = intersect.obj.mat;
 
@@ -93,7 +110,7 @@ module.exports = class DirectionalLight extends Light {
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Vec3":11}],4:[function(require,module,exports){
+},{"./Color":2,"./Light":4,"./Ray":7,"./Vec3":11}],4:[function(require,module,exports){
 module.exports = class Light {
 	constructor(color, intensity) {
 		this.color = color;
@@ -128,7 +145,7 @@ module.exports = class PointSpotLight extends Light {
 			const intersect = shape.intersect(shadowRay);
 			if (intersect && (intersect.t > 0.01) && (intersect.t < maxT)) {
 				if (debug) {
-					console.log('shadow', intersect.t, maxT);
+					console.log('shadow', pos, intersectToLight, intersect.t, maxT);
 				}
 				return true;
 			}
@@ -139,7 +156,6 @@ module.exports = class PointSpotLight extends Light {
 		let r = 0, g = 0, b = 0;
 
 		const pos = intersect.intersectionPoint;
-
 		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
 			return new Color(0, 0, 0);
 		}
@@ -302,7 +318,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(0);
+        this.selectScene(2);
 
         this.canvas = canvasElement;
 
@@ -416,17 +432,17 @@ module.exports = class Renderer {
 
         let color;
         let minT = Number.MAX_VALUE;
+        let closestIntersect;
 
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray);
-            // if (debug) {
-            //     console.log(shape, intersect);
-            // }
             if (intersect && (intersect.t < minT)) {
                 minT = intersect.t;
-                color = this._shade(intersect, debug);
+                closestIntersect = intersect;
             }
         }
+
+        color = this._shade(closestIntersect, debug);
 
         if (debug) {
             console.log('-------------------------------------');
@@ -654,7 +670,7 @@ const scene3 = {
 	    // sphere
 	    new QuadraticShape(
 	        shinyBlueMat,
-	        new Vec3(-1, -1, 4),
+	        new Vec3(-1, -2, 8),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
 	        new Vec3(1, 0, 0),

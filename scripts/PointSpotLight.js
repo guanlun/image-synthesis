@@ -24,7 +24,7 @@ module.exports = class PointSpotLight extends Light {
 			const intersect = shape.intersect(shadowRay);
 			if (intersect && (intersect.t > 0.01) && (intersect.t < maxT)) {
 				if (debug) {
-					console.log('shadow', intersect.t, maxT);
+					console.log('shadow', pos, intersectToLight, intersect.t, maxT);
 				}
 				return true;
 			}
@@ -35,7 +35,6 @@ module.exports = class PointSpotLight extends Light {
 		let r = 0, g = 0, b = 0;
 
 		const pos = intersect.intersectionPoint;
-
 		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
 			return new Color(0, 0, 0);
 		}

@@ -215,7 +215,7 @@ const scene3 = {
 	    // sphere
 	    new QuadraticShape(
 	        shinyBlueMat,
-	        new Vec3(-1, -1, 4),
+	        new Vec3(-1, -2, 8),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
 	        new Vec3(1, 0, 0),
