@@ -8,7 +8,7 @@ const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
 
 const texturedMat = {
-	diffuseMapSrc: 'trump.jpg',
+	diffuseMapSrc: 'cb.jpg',
 };
 
 const shinyBlueMat = {

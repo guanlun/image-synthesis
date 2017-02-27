@@ -35,7 +35,11 @@ module.exports = class QuadraticShape {
 				const ctx = canvas.getContext('2d');
 				ctx.drawImage(img, 0, 0, img.width, img.height);
 
-				this.mat.diffuseMap = ctx.getImageData(0, 0, img.width, img.height);
+				this.mat.diffuseMap = {
+					width: img.width,
+					height: img.height,
+					data: ctx.getImageData(0, 0, img.width, img.height).data,
+				}
 			};
 		}
 	}

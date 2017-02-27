@@ -64,10 +64,6 @@ module.exports = class PointSpotLight extends Light {
 			const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 			if (cosTheta > 0) {
 				this.diffuseLight(resultColor, mat, cosTheta, intersect.texCoord, coeff);
-				// r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
-				// g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
-				// b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
-
 			}
 
 			const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
@@ -79,24 +75,5 @@ module.exports = class PointSpotLight extends Light {
 		}
 
 		return resultColor;
-	}
-
-	diffuseLight(color, mat, cosTheta, texCoord, coeff) {
-		if (coeff === undefined) {
-			coeff = 1;
-		}
-
-		var diffuseColor;
-
-		if (mat.diffuseMap) {
-			// mat.diffuseMap
-			diffuseColor = new Color(1, 0, 0);
-		} else {
-			diffuseColor = mat.kDiffuse;
-		}
-
-		color.r += coeff * this.intensity * diffuseColor.r * this.color.r * cosTheta;
-		color.g += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
-		color.b += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
 	}
 }

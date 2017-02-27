@@ -111,14 +111,46 @@ module.exports = class DirectionalLight extends Light {
 }
 
 },{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":12}],4:[function(require,module,exports){
+const Color = require('./Color');
+
 module.exports = class Light {
 	constructor(color, intensity) {
 		this.color = color;
 		this.intensity = intensity;
 	}
+
+	diffuseLight(color, mat, cosTheta, texCoord, coeff) {
+		if (coeff === undefined) {
+			coeff = 1;
+		}
+
+		var diffuseColor;
+
+		if (mat.diffuseMap) {
+			const width = mat.diffuseMap.width;
+			const height = mat.diffuseMap.height;
+
+			const x = Math.round(texCoord.u * mat.diffuseMap.width);
+			const y = Math.round(texCoord.v * mat.diffuseMap.height);
+
+			const idx = (y * width + x) * 4;
+
+			diffuseColor = new Color(
+				(mat.diffuseMap.data[idx]) / 255,
+				(mat.diffuseMap.data[idx + 1]) / 255,
+				(mat.diffuseMap.data[idx + 2]) / 255
+			);
+		} else {
+			diffuseColor = mat.kDiffuse;
+		}
+
+		color.r += coeff * this.intensity * diffuseColor.r * this.color.r * cosTheta;
+		color.g += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
+		color.b += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
+	}
 }
 
-},{}],5:[function(require,module,exports){
+},{"./Color":2}],5:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class MeshObject {
@@ -227,10 +259,6 @@ module.exports = class PointSpotLight extends Light {
 			const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 			if (cosTheta > 0) {
 				this.diffuseLight(resultColor, mat, cosTheta, intersect.texCoord, coeff);
-				// r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
-				// g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
-				// b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
-
 			}
 
 			const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
@@ -242,25 +270,6 @@ module.exports = class PointSpotLight extends Light {
 		}
 
 		return resultColor;
-	}
-
-	diffuseLight(color, mat, cosTheta, texCoord, coeff) {
-		if (coeff === undefined) {
-			coeff = 1;
-		}
-
-		var diffuseColor;
-
-		if (mat.diffuseMap) {
-			// mat.diffuseMap
-			diffuseColor = new Color(1, 0, 0);
-		} else {
-			diffuseColor = mat.kDiffuse;
-		}
-
-		color.r += coeff * this.intensity * diffuseColor.r * this.color.r * cosTheta;
-		color.g += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
-		color.b += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
 	}
 }
 
@@ -302,7 +311,11 @@ module.exports = class QuadraticShape {
 				const ctx = canvas.getContext('2d');
 				ctx.drawImage(img, 0, 0, img.width, img.height);
 
-				this.mat.diffuseMap = ctx.getImageData(0, 0, img.width, img.height);
+				this.mat.diffuseMap = {
+					width: img.width,
+					height: img.height,
+					data: ctx.getImageData(0, 0, img.width, img.height).data,
+				}
 			};
 		}
 	}
@@ -560,7 +573,7 @@ const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
 
 const texturedMat = {
-	diffuseMapSrc: 'trump.jpg',
+	diffuseMapSrc: 'cb.jpg',
 };
 
 const shinyBlueMat = {
