@@ -15,7 +15,7 @@ module.exports = class Vec3 {
 
     static normalize(v) {
         const mag = v.magnitude();
-        
+
         return new Vec3(
             v.x / mag,
             v.y / mag,
@@ -24,7 +24,7 @@ module.exports = class Vec3 {
     }
 
     static add(...vs) {
-        let xs = 0, ys = 0, zs = 0;
+        var xs = 0, ys = 0, zs = 0;
 
         for (let v of vs) {
             xs += v.x;

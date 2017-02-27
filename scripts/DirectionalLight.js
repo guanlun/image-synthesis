@@ -22,18 +22,18 @@ module.exports = class DirectionalLight extends Light {
 	}
 
 	shade(intersect, sceneShapes, debug) {
-		let r = 0, g = 0, b = 0;
+		var r = 0, g = 0, b = 0;
 
 		const pos = intersect.intersectionPoint;
-		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
-			return new Color(0, 0, 0);
-		}
-
 		const mat = intersect.obj.mat;
 
 		r += this.intensity * mat.kAmbient.r * this.color.r;
 		g += this.intensity * mat.kAmbient.g * this.color.g;
 		b += this.intensity * mat.kAmbient.b * this.color.b;
+
+		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+			return new Color(r, g, b);
+		}
 
 		const cosTheta = -Vec3.dot(intersect.normal, this.direction);
 		if (cosTheta > 0) {

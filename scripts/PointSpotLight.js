@@ -32,18 +32,18 @@ module.exports = class PointSpotLight extends Light {
 	}
 
 	shade(intersect, sceneShapes, debug) {
-		let r = 0, g = 0, b = 0;
+		const resultColor = new Color(0, 0, 0);
 
 		const pos = intersect.intersectionPoint;
-		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
-			return new Color(0, 0, 0);
-		}
-
 		const mat = intersect.obj.mat;
 
-		r += 0.4 * this.intensity * mat.kAmbient.r * this.color.r;
-		g += 0.4 * this.intensity * mat.kAmbient.g * this.color.g;
-		b += 0.4 * this.intensity * mat.kAmbient.b * this.color.b;
+		// resultColor.r += this.intensity * mat.kAmbient.r * this.color.r;
+		// resultColor.g += this.intensity * mat.kAmbient.g * this.color.g;
+		// resultColor.b += this.intensity * mat.kAmbient.b * this.color.b;
+
+		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+			return resultColor;
+		}
 
 		const pToLight = Vec3.subtract(this.position, pos);
 
@@ -63,19 +63,40 @@ module.exports = class PointSpotLight extends Light {
 
 			const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 			if (cosTheta > 0) {
-				r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
-				g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
-				b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+				this.diffuseLight(resultColor, mat, cosTheta, intersect.texCoord, coeff);
+				// r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
+				// g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
+				// b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+
 			}
 
 			const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
 			if (specularCos > 0) {
-				r += coeff * this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
-				g += coeff * this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
-				b += coeff * this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
+				// r += coeff * this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
+				// g += coeff * this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
+				// b += coeff * this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
 			}
 		}
 
-		return new Color(r, g, b);
+		return resultColor;
+	}
+
+	diffuseLight(color, mat, cosTheta, texCoord, coeff) {
+		if (coeff === undefined) {
+			coeff = 1;
+		}
+
+		var diffuseColor;
+
+		if (mat.diffuseMap) {
+			// mat.diffuseMap
+			diffuseColor = new Color(1, 0, 0);
+		} else {
+			diffuseColor = mat.kDiffuse;
+		}
+
+		color.r += coeff * this.intensity * diffuseColor.r * this.color.r * cosTheta;
+		color.g += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
+		color.b += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
 	}
 }

@@ -24,7 +24,7 @@ module.exports = class Camera {
     }
 }
 
-},{"./Ray":7,"./Vec3":11}],2:[function(require,module,exports){
+},{"./Ray":8,"./Vec3":12}],2:[function(require,module,exports){
 function clamp(n) {
     if (n > 1) return 1;
     if (n < 0) return 0;
@@ -79,18 +79,18 @@ module.exports = class DirectionalLight extends Light {
 	}
 
 	shade(intersect, sceneShapes, debug) {
-		let r = 0, g = 0, b = 0;
+		var r = 0, g = 0, b = 0;
 
 		const pos = intersect.intersectionPoint;
-		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
-			return new Color(0, 0, 0);
-		}
-
 		const mat = intersect.obj.mat;
 
 		r += this.intensity * mat.kAmbient.r * this.color.r;
 		g += this.intensity * mat.kAmbient.g * this.color.g;
 		b += this.intensity * mat.kAmbient.b * this.color.b;
+
+		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+			return new Color(r, g, b);
+		}
 
 		const cosTheta = -Vec3.dot(intersect.normal, this.direction);
 		if (cosTheta > 0) {
@@ -110,7 +110,7 @@ module.exports = class DirectionalLight extends Light {
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Ray":7,"./Vec3":11}],4:[function(require,module,exports){
+},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":12}],4:[function(require,module,exports){
 module.exports = class Light {
 	constructor(color, intensity) {
 		this.color = color;
@@ -119,6 +119,48 @@ module.exports = class Light {
 }
 
 },{}],5:[function(require,module,exports){
+const Vec3 = require('./Vec3');
+
+module.exports = class MeshObject {
+    constructor(objData) {
+        const lines = objData.split('\n');
+
+        this.vertices = [];
+        this.faces = [];
+
+        for (let line of lines) {
+            const segs = line.split(' ');
+            const type = segs[0];
+
+            const n1 = parseInt(segs[1]),
+                n2 = parseInt(segs[2]),
+                n3 = parseInt(segs[3]);
+
+            switch (type) {
+                case 'v':
+                    const vertex = new Vec3(n1, n2, n3);
+                    this.vertices.push(vertex);
+                    break;
+                case 'f':
+                    this.faces.push({
+                        vertices: [this.vertices[n1 - 1], this.vertices[n2 - 1], this.vertices[n3 - 1]],
+                    })
+            }
+        }
+    }
+
+    intersect(ray) {
+        for (let face in this.faces) {
+            const vertices = face.vertices;
+            const v1 = Vec3.subtract(vertices[1], vertices[0]);
+            const v2 = Vec3.subtract(vertices[2], vertices[0]);
+
+            
+        }
+    }
+}
+
+},{"./Vec3":12}],6:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
@@ -153,18 +195,18 @@ module.exports = class PointSpotLight extends Light {
 	}
 
 	shade(intersect, sceneShapes, debug) {
-		let r = 0, g = 0, b = 0;
+		const resultColor = new Color(0, 0, 0);
 
 		const pos = intersect.intersectionPoint;
-		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
-			return new Color(0, 0, 0);
-		}
-
 		const mat = intersect.obj.mat;
 
-		r += 0.4 * this.intensity * mat.kAmbient.r * this.color.r;
-		g += 0.4 * this.intensity * mat.kAmbient.g * this.color.g;
-		b += 0.4 * this.intensity * mat.kAmbient.b * this.color.b;
+		// resultColor.r += this.intensity * mat.kAmbient.r * this.color.r;
+		// resultColor.g += this.intensity * mat.kAmbient.g * this.color.g;
+		// resultColor.b += this.intensity * mat.kAmbient.b * this.color.b;
+
+		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+			return resultColor;
+		}
 
 		const pToLight = Vec3.subtract(this.position, pos);
 
@@ -184,24 +226,45 @@ module.exports = class PointSpotLight extends Light {
 
 			const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
 			if (cosTheta > 0) {
-				r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
-				g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
-				b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+				this.diffuseLight(resultColor, mat, cosTheta, intersect.texCoord, coeff);
+				// r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
+				// g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
+				// b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+
 			}
 
 			const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
 			if (specularCos > 0) {
-				r += coeff * this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
-				g += coeff * this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
-				b += coeff * this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
+				// r += coeff * this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
+				// g += coeff * this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
+				// b += coeff * this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
 			}
 		}
 
-		return new Color(r, g, b);
+		return resultColor;
+	}
+
+	diffuseLight(color, mat, cosTheta, texCoord, coeff) {
+		if (coeff === undefined) {
+			coeff = 1;
+		}
+
+		var diffuseColor;
+
+		if (mat.diffuseMap) {
+			// mat.diffuseMap
+			diffuseColor = new Color(1, 0, 0);
+		} else {
+			diffuseColor = mat.kDiffuse;
+		}
+
+		color.r += coeff * this.intensity * diffuseColor.r * this.color.r * cosTheta;
+		color.g += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
+		color.b += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Ray":7,"./Vec3":11}],6:[function(require,module,exports){
+},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":12}],7:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
@@ -224,6 +287,24 @@ module.exports = class QuadraticShape {
 		this.a22 = a22;
 		this.a21 = a21;
 		this.a00 = a00;
+
+		if (this.mat.diffuseMapSrc !== undefined) {
+			const img = new Image();
+			img.src = `img/${mat.diffuseMapSrc}`;
+
+			img.onload = () => {
+				console.log("Texture loaded:", mat.diffuseMapSrc);
+
+				const canvas = document.createElement('canvas');
+				canvas.width = img.width;
+				canvas.height = img.height;
+
+				const ctx = canvas.getContext('2d');
+				ctx.drawImage(img, 0, 0, img.width, img.height);
+
+				this.mat.diffuseMap = ctx.getImageData(0, 0, img.width, img.height);
+			};
+		}
 	}
 
 	intersect(ray) {
@@ -246,7 +327,7 @@ module.exports = class QuadraticShape {
 			this.a22 * (2 * pe2 * ec2) +
 			this.a21 * pe2;
 
-		const C = this.a02 * Math.pow(ec0, 2) + 
+		const C = this.a02 * Math.pow(ec0, 2) +
 			this.a12 * Math.pow(ec1, 2) +
 			this.a22 * Math.pow(ec2, 2) +
 			this.a21 * ec2 +
@@ -283,13 +364,24 @@ module.exports = class QuadraticShape {
 		));
 
 		const reflDir = Vec3.normalize(
-			Vec3.subtract(ray.dir, 
+			Vec3.subtract(ray.dir,
 				Vec3.scalarProd(
 					2 * Vec3.dot(ray.dir, normal),
 					normal
 				)
 			)
 		);
+
+		let u, v;
+
+		if (this.mat.diffuseMap) {
+			const tex0 = Vec3.dot(this.n0, relPos) / this.s0;
+			const tex1 = Vec3.dot(this.n1, relPos) / this.s1;
+			const tex2 = Vec3.dot(this.n2, relPos) / this.s2;
+
+			v = Math.acos(tex2) / Math.PI;
+			u = Math.acos(tex1 / Math.sin(Math.PI * v)) / (Math.PI * 2);
+		}
 
 		return {
 			t: t,
@@ -298,10 +390,15 @@ module.exports = class QuadraticShape {
 			normal: normal,
 			reflDir: reflDir,
 			obj: this,
+			texCoord: {
+				u: u,
+				v: v,
+			},
 		}
 	}
 }
-},{"./Vec3":11}],7:[function(require,module,exports){
+
+},{"./Vec3":12}],8:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Ray {
@@ -310,7 +407,7 @@ module.exports = class Ray {
 		this.dir = Vec3.normalize(dir);
 	}
 }
-},{"./Vec3":11}],8:[function(require,module,exports){
+},{"./Vec3":12}],9:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const Scene = require('./Scene');
@@ -318,7 +415,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(2);
+        this.selectScene(1);
 
         this.canvas = canvasElement;
 
@@ -362,10 +459,10 @@ module.exports = class Renderer {
             let resultColor;
 
             if (this.antialiasing) {
-                let r = 0, g = 0, b = 0;
+                var r = 0, g = 0, b = 0;
 
-                for (let yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
-                    for (let xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
+                for (var yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
+                    for (var xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
                         const xJitterPos = x + xOffset + xRand;
                         const yJitterPos = y + yOffset + yRand;
 
@@ -394,7 +491,7 @@ module.exports = class Renderer {
     }
 
     _shade(intersect, debug) {
-        let r = 0, g = 0, b = 0;
+        var r = 0, g = 0, b = 0;
 
         for (let light of this.scene.lights) {
             const color = light.shade(intersect, this.scene.shapes, debug);
@@ -452,14 +549,19 @@ module.exports = class Renderer {
     }
 }
 
-},{"./Color":2,"./Ray":7,"./Scene":9,"./Vec3":11}],9:[function(require,module,exports){
+},{"./Color":2,"./Ray":8,"./Scene":10,"./Vec3":12}],10:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Shape = require('./Shape');
 const Color = require('./Color');
 const QuadraticShape = require('./QuadraticShape');
+const MeshObject = require('./MeshObject');
 const Camera = require('./Camera');
 const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
+
+const texturedMat = {
+	diffuseMapSrc: 'trump.jpg',
+};
 
 const shinyBlueMat = {
 	kAmbient: new Color(0.1, 0.1, 0.2),
@@ -606,7 +708,7 @@ const scene2 = {
 	shapes: [
 	    // sphere
 	    new QuadraticShape(
-	        shinyBlueMat,
+	        texturedMat,
 	        new Vec3(-1, -1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -680,7 +782,7 @@ const scene3 = {
 
 	    // sphere
 	    new QuadraticShape(
-	        shinyRedMat,
+	        texturedMat,
 	        new Vec3(1, 1, 6),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -719,7 +821,7 @@ const scene3 = {
 
 module.exports = [scene1, scene2, scene3];
 
-},{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./PointSpotLight":5,"./QuadraticShape":6,"./Shape":10,"./Vec3":11}],10:[function(require,module,exports){
+},{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./MeshObject":5,"./PointSpotLight":6,"./QuadraticShape":7,"./Shape":11,"./Vec3":12}],11:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Shape {
@@ -728,7 +830,7 @@ module.exports = class Shape {
     }
 }
 
-},{"./Vec3":11}],11:[function(require,module,exports){
+},{"./Vec3":12}],12:[function(require,module,exports){
 module.exports = class Vec3 {
     constructor(x, y, z) {
         this.x = x;
@@ -746,7 +848,7 @@ module.exports = class Vec3 {
 
     static normalize(v) {
         const mag = v.magnitude();
-        
+
         return new Vec3(
             v.x / mag,
             v.y / mag,
@@ -755,7 +857,7 @@ module.exports = class Vec3 {
     }
 
     static add(...vs) {
-        let xs = 0, ys = 0, zs = 0;
+        var xs = 0, ys = 0, zs = 0;
 
         for (let v of vs) {
             xs += v.x;
@@ -787,7 +889,7 @@ module.exports = class Vec3 {
     }
 }
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 const Renderer = require('./Renderer');
 
 window.onload = () => {
@@ -818,4 +920,4 @@ window.onload = () => {
 
 }
 
-},{"./Renderer":8}]},{},[12]);
+},{"./Renderer":9}]},{},[13]);

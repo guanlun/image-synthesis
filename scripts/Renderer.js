@@ -5,7 +5,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(2);
+        this.selectScene(1);
 
         this.canvas = canvasElement;
 
@@ -49,10 +49,10 @@ module.exports = class Renderer {
             let resultColor;
 
             if (this.antialiasing) {
-                let r = 0, g = 0, b = 0;
+                var r = 0, g = 0, b = 0;
 
-                for (let yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
-                    for (let xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
+                for (var yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
+                    for (var xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
                         const xJitterPos = x + xOffset + xRand;
                         const yJitterPos = y + yOffset + yRand;
 
@@ -81,7 +81,7 @@ module.exports = class Renderer {
     }
 
     _shade(intersect, debug) {
-        let r = 0, g = 0, b = 0;
+        var r = 0, g = 0, b = 0;
 
         for (let light of this.scene.lights) {
             const color = light.shade(intersect, this.scene.shapes, debug);

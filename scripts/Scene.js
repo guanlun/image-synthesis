@@ -2,9 +2,14 @@ const Vec3 = require('./Vec3');
 const Shape = require('./Shape');
 const Color = require('./Color');
 const QuadraticShape = require('./QuadraticShape');
+const MeshObject = require('./MeshObject');
 const Camera = require('./Camera');
 const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
+
+const texturedMat = {
+	diffuseMapSrc: 'trump.jpg',
+};
 
 const shinyBlueMat = {
 	kAmbient: new Color(0.1, 0.1, 0.2),
@@ -151,7 +156,7 @@ const scene2 = {
 	shapes: [
 	    // sphere
 	    new QuadraticShape(
-	        shinyBlueMat,
+	        texturedMat,
 	        new Vec3(-1, -1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -225,7 +230,7 @@ const scene3 = {
 
 	    // sphere
 	    new QuadraticShape(
-	        shinyRedMat,
+	        texturedMat,
 	        new Vec3(1, 1, 6),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),

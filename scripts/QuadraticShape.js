@@ -20,6 +20,24 @@ module.exports = class QuadraticShape {
 		this.a22 = a22;
 		this.a21 = a21;
 		this.a00 = a00;
+
+		if (this.mat.diffuseMapSrc !== undefined) {
+			const img = new Image();
+			img.src = `img/${mat.diffuseMapSrc}`;
+
+			img.onload = () => {
+				console.log("Texture loaded:", mat.diffuseMapSrc);
+
+				const canvas = document.createElement('canvas');
+				canvas.width = img.width;
+				canvas.height = img.height;
+
+				const ctx = canvas.getContext('2d');
+				ctx.drawImage(img, 0, 0, img.width, img.height);
+
+				this.mat.diffuseMap = ctx.getImageData(0, 0, img.width, img.height);
+			};
+		}
 	}
 
 	intersect(ray) {
@@ -42,7 +60,7 @@ module.exports = class QuadraticShape {
 			this.a22 * (2 * pe2 * ec2) +
 			this.a21 * pe2;
 
-		const C = this.a02 * Math.pow(ec0, 2) + 
+		const C = this.a02 * Math.pow(ec0, 2) +
 			this.a12 * Math.pow(ec1, 2) +
 			this.a22 * Math.pow(ec2, 2) +
 			this.a21 * ec2 +
@@ -79,13 +97,24 @@ module.exports = class QuadraticShape {
 		));
 
 		const reflDir = Vec3.normalize(
-			Vec3.subtract(ray.dir, 
+			Vec3.subtract(ray.dir,
 				Vec3.scalarProd(
 					2 * Vec3.dot(ray.dir, normal),
 					normal
 				)
 			)
 		);
+
+		let u, v;
+
+		if (this.mat.diffuseMap) {
+			const tex0 = Vec3.dot(this.n0, relPos) / this.s0;
+			const tex1 = Vec3.dot(this.n1, relPos) / this.s1;
+			const tex2 = Vec3.dot(this.n2, relPos) / this.s2;
+
+			v = Math.acos(tex2) / Math.PI;
+			u = Math.acos(tex1 / Math.sin(Math.PI * v)) / (Math.PI * 2);
+		}
 
 		return {
 			t: t,
@@ -94,6 +123,10 @@ module.exports = class QuadraticShape {
 			normal: normal,
 			reflDir: reflDir,
 			obj: this,
+			texCoord: {
+				u: u,
+				v: v,
+			},
 		}
 	}
 }
