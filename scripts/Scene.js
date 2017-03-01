@@ -8,7 +8,10 @@ const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
 
 const texturedMat = {
+	nSpecular: 20,
+	kSpecular: new Color(1, 1, 1),
 	diffuseMapSrc: 'cb.jpg',
+	specularThreshold: 0.8,
 };
 
 const shinyBlueMat = {
@@ -156,7 +159,7 @@ const scene2 = {
 	shapes: [
 	    // sphere
 	    new QuadraticShape(
-	        texturedMat,
+	        shinyBlueMat,
 	        new Vec3(-1, -1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -230,7 +233,7 @@ const scene3 = {
 
 	    // sphere
 	    new QuadraticShape(
-	        texturedMat,
+	        shinyRedMat,
 	        new Vec3(1, 1, 6),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),

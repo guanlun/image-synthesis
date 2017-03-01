@@ -65,7 +65,17 @@ module.exports = class DirectionalLight extends Light {
 		super(color, intensity);
 
 		this.direction = Vec3.normalize(direction);
+
+		this.daCoeff = 0;
 	}
+
+    getDirection(pos) {
+        return this.direction;
+    }
+
+    distanceAttenuation(pos) {
+        return 1;
+    }
 
 	shadowAttenuation(pos, sceneShapes, debug) {
 		const shadowRay = new Ray(pos, Vec3.scalarProd(-1, this.direction));
@@ -78,39 +88,40 @@ module.exports = class DirectionalLight extends Light {
 		}
 	}
 
-	shade(intersect, sceneShapes, debug) {
-		var r = 0, g = 0, b = 0;
-
-		const pos = intersect.intersectionPoint;
-		const mat = intersect.obj.mat;
-
-		r += this.intensity * mat.kAmbient.r * this.color.r;
-		g += this.intensity * mat.kAmbient.g * this.color.g;
-		b += this.intensity * mat.kAmbient.b * this.color.b;
-
-		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
-			return new Color(r, g, b);
-		}
-
-		const cosTheta = -Vec3.dot(intersect.normal, this.direction);
-		if (cosTheta > 0) {
-			r += this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
-			g += this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
-			b += this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
-		}
-
-		const specularCos = -Vec3.dot(intersect.reflDir, this.direction);
-		if (specularCos > mat.specularThreshold) {
-			r += this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
-			g += this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
-			b += this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
-		}
-
-		return new Color(r, g, b);
-	}
+	// shade(intersect, sceneShapes, debug) {
+	// 	var r = 0, g = 0, b = 0;
+    //
+	// 	const pos = intersect.intersectionPoint;
+	// 	const mat = intersect.obj.mat;
+    //
+	// 	// r += this.intensity * mat.kAmbient.r * this.color.r;
+	// 	// g += this.intensity * mat.kAmbient.g * this.color.g;
+	// 	// b += this.intensity * mat.kAmbient.b * this.color.b;
+    //
+	// 	if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+	// 		return new Color(r, g, b);
+	// 	}
+    //
+	// 	const cosTheta = -Vec3.dot(intersect.normal, this.direction);
+	// 	if (cosTheta > 0) {
+	// 		r += this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
+	// 		g += this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
+	// 		b += this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+	// 	}
+    //
+	// 	const specularCos = -Vec3.dot(intersect.reflDir, this.direction);
+	// 	if (specularCos > mat.specularThreshold) {
+	// 		r += this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
+	// 		g += this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
+	// 		b += this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
+	// 	}
+    //
+	// 	return new Color(r, g, b);
+	// }
 }
 
 },{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":12}],4:[function(require,module,exports){
+const Vec3 = require('./Vec3');
 const Color = require('./Color');
 
 module.exports = class Light {
@@ -119,38 +130,90 @@ module.exports = class Light {
 		this.intensity = intensity;
 	}
 
-	diffuseLight(color, mat, cosTheta, texCoord, coeff) {
-		if (coeff === undefined) {
-			coeff = 1;
+	shade(intersect, sceneShapes, debug) {
+		let r = 0, g = 0, b = 0;
+
+		const pos = intersect.intersectionPoint;
+		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+			return new Color(0, 0, 0);
 		}
 
-		var diffuseColor;
+		const mat = intersect.obj.mat;
 
-		if (mat.diffuseMap) {
-			const width = mat.diffuseMap.width;
-			const height = mat.diffuseMap.height;
+		r += 0.4 * this.intensity * mat.kAmbient.r * this.color.r;
+		g += 0.4 * this.intensity * mat.kAmbient.g * this.color.g;
+		b += 0.4 * this.intensity * mat.kAmbient.b * this.color.b;
 
-			const x = Math.round(texCoord.u * mat.diffuseMap.width);
-			const y = Math.round(texCoord.v * mat.diffuseMap.height);
+        const lightDir = this.getDirection(pos);
 
-			const idx = (y * width + x) * 4;
+		// if (pointLightCos < this.angleCos) {
+		// 	// do nothing
+		// } else {
+			const diffAngle = 1 - this.angleCos;
+			const cutoff = 1 - diffAngle * (1 - this.dropoffCoeff);
+			// const spotLightAttenutation = 1 - Math.max(cutoff - pointLightCos, 0) / (diffAngle * this.dropoffCoeff);
 
-			diffuseColor = new Color(
-				(mat.diffuseMap.data[idx]) / 255,
-				(mat.diffuseMap.data[idx + 1]) / 255,
-				(mat.diffuseMap.data[idx + 2]) / 255
-			);
-		} else {
-			diffuseColor = mat.kDiffuse;
-		}
+            const coeff = this.distanceAttenuation(pos);
 
-		color.r += coeff * this.intensity * diffuseColor.r * this.color.r * cosTheta;
-		color.g += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
-		color.b += coeff * this.intensity * diffuseColor.b * this.color.g * cosTheta;
+			const cosTheta = -Vec3.dot(intersect.normal, lightDir);
+
+			if (cosTheta > 0) {
+				r += coeff * this.intensity * mat.kDiffuse.r * this.color.r * cosTheta;
+				g += coeff * this.intensity * mat.kDiffuse.g * this.color.g * cosTheta;
+				b += coeff * this.intensity * mat.kDiffuse.b * this.color.b * cosTheta;
+			}
+
+			const specularCos = -Vec3.dot(intersect.reflDir, lightDir);
+			if (specularCos > 0) {
+				r += coeff * this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
+				g += coeff * this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
+				b += coeff * this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
+			}
+		// }
+
+		return new Color(r, g, b);
 	}
+
+// 	diffuseLight(color, mat, cosTheta, specularCos, texCoord, coeff) {
+// 		if (coeff === undefined) {
+// 			coeff = 1;
+// 		}
+//
+// 		var diffuseColor, specularColor;
+//
+// 		if (mat.diffuseMap) {
+// 			const width = mat.diffuseMap.width;
+// 			const height = mat.diffuseMap.height;
+//
+// 			const x = Math.round(texCoord.u * mat.diffuseMap.width);
+// 			const y = Math.round(texCoord.v * mat.diffuseMap.height);
+//
+// 			const idx = (y * width + x) * 4;
+//
+// 			diffuseColor = new Color(
+// 				(mat.diffuseMap.data[idx]) / 255,
+// 				(mat.diffuseMap.data[idx + 1]) / 255,
+// 				(mat.diffuseMap.data[idx + 2]) / 255
+// 			);
+// 			specularColor = diffuseColor;
+// 		} else {
+// 			diffuseColor = mat.kDiffuse;
+//
+// 		}
+// 		specularColor = mat.kSpecular;
+//
+// 		const ns = Math.pow(specularCos, mat.nSpecular);
+//
+// 		color.r += coeff * this.intensity * this.color.r *
+// 			(diffuseColor.r * cosTheta + specularColor.r * ns);
+// 		color.g += coeff * this.intensity * this.color.g *
+// 			(diffuseColor.g * cosTheta + specularColor.g * ns);
+// 		color.b += coeff * this.intensity * this.color.b *
+// 			(diffuseColor.b * cosTheta + specularColor.b * ns);
+// 	}
 }
 
-},{"./Color":2}],5:[function(require,module,exports){
+},{"./Color":2,"./Vec3":12}],5:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class MeshObject {
@@ -198,8 +261,6 @@ const Light = require('./Light');
 const Color = require('./Color');
 const Ray = require('./Ray');
 
-const daCoeff = 0.005;
-
 module.exports = class PointSpotLight extends Light {
 	constructor(position, direction, angleCos, dropoffCoeff, color, intensity) {
 		super(color, intensity);
@@ -208,7 +269,19 @@ module.exports = class PointSpotLight extends Light {
 		this.angleCos = angleCos;
 		this.dropoffCoeff = dropoffCoeff;
 		this.direction = Vec3.normalize(direction);
+
+		this.daCoeff = 0.005;
 	}
+
+    getDirection(pos) {
+        return Vec3.normalize(Vec3.subtract(pos, this.position));
+    }
+
+    distanceAttenuation(pos) {
+        const pToLight = Vec3.subtract(this.position, pos);
+        const lightDist = pToLight.magnitude();
+        return 1 / (1 + this.daCoeff * lightDist + this.daCoeff * lightDist * lightDist);
+    }
 
 	shadowAttenuation(pos, sceneShapes, debug) {
 		const intersectToLight = Vec3.subtract(this.position, pos);
@@ -226,51 +299,48 @@ module.exports = class PointSpotLight extends Light {
 		}
 	}
 
-	shade(intersect, sceneShapes, debug) {
-		const resultColor = new Color(0, 0, 0);
+	computeCosTheta() {
 
-		const pos = intersect.intersectionPoint;
-		const mat = intersect.obj.mat;
-
-		// resultColor.r += this.intensity * mat.kAmbient.r * this.color.r;
-		// resultColor.g += this.intensity * mat.kAmbient.g * this.color.g;
-		// resultColor.b += this.intensity * mat.kAmbient.b * this.color.b;
-
-		if (this.shadowAttenuation(pos, sceneShapes, debug)) {
-			return resultColor;
-		}
-
-		const pToLight = Vec3.subtract(this.position, pos);
-
-		const pointLightCos = -Vec3.dot(this.direction, pToLight) / pToLight.magnitude();
-
-		if (pointLightCos < this.angleCos) {
-			// do nothing
-		} else {
-			const diffAngle = 1 - this.angleCos;
-			const cutoff = 1 - diffAngle * (1 - this.dropoffCoeff);
-			const spotLightAttenutation = 1 - Math.max(cutoff - pointLightCos, 0) / (diffAngle * this.dropoffCoeff);
-
-			const lightDist = pToLight.magnitude();
-			const distanceAttenuation = 1 / (1 + daCoeff * lightDist + daCoeff * lightDist * lightDist);
-
-			const coeff = spotLightAttenutation * distanceAttenuation;
-
-			const cosTheta = Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude();
-			if (cosTheta > 0) {
-				this.diffuseLight(resultColor, mat, cosTheta, intersect.texCoord, coeff);
-			}
-
-			const specularCos = Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude();
-			if (specularCos > 0) {
-				// r += coeff * this.intensity * mat.kSpecular.r * this.color.r * Math.pow(specularCos, mat.nSpecular);
-				// g += coeff * this.intensity * mat.kSpecular.g * this.color.g * Math.pow(specularCos, mat.nSpecular);
-				// b += coeff * this.intensity * mat.kSpecular.b * this.color.b * Math.pow(specularCos, mat.nSpecular);
-			}
-		}
-
-		return resultColor;
 	}
+
+	// shade(intersect, sceneShapes, debug) {
+	// 	const resultColor = new Color(0, 0, 0);
+    //
+	// 	const pos = intersect.intersectionPoint;
+	// 	const mat = intersect.obj.mat;
+    //
+	// 	// resultColor.r += this.intensity * mat.kAmbient.r * this.color.r;
+	// 	// resultColor.g += this.intensity * mat.kAmbient.g * this.color.g;
+	// 	// resultColor.b += this.intensity * mat.kAmbient.b * this.color.b;
+    //
+	// 	if (this.shadowAttenuation(pos, sceneShapes, debug)) {
+	// 		return resultColor;
+	// 	}
+    //
+	// 	const pToLight = Vec3.subtract(this.position, pos);
+    //
+	// 	const pointLightCos = -Vec3.dot(this.direction, pToLight) / pToLight.magnitude();
+    //
+	// 	if (pointLightCos < this.angleCos) {
+	// 		// do nothing
+	// 	} else {
+	// 		const diffAngle = 1 - this.angleCos;
+	// 		const cutoff = 1 - diffAngle * (1 - this.dropoffCoeff);
+	// 		const spotLightAttenutation = 1 - Math.max(cutoff - pointLightCos, 0) / (diffAngle * this.dropoffCoeff);
+    //
+	// 		const lightDist = pToLight.magnitude();
+	// 		const distanceAttenuation = 1 / (1 + this.daCoeff * lightDist + this.daCoeff * lightDist * lightDist);
+    //
+	// 		const coeff = spotLightAttenutation * distanceAttenuation;
+    //
+	// 		const cosTheta = Math.max(0, Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude());
+	// 		const specularCos = Math.max(0, Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude());
+    //
+	// 		this.diffuseLight(resultColor, mat, cosTheta, specularCos, intersect.texCoord, coeff);
+	// 	}
+    //
+	// 	return resultColor;
+	// }
 }
 
 },{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":12}],7:[function(require,module,exports){
@@ -428,7 +498,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(1);
+        this.selectScene(2);
 
         this.canvas = canvasElement;
 
@@ -573,7 +643,10 @@ const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
 
 const texturedMat = {
+	nSpecular: 20,
+	kSpecular: new Color(1, 1, 1),
 	diffuseMapSrc: 'cb.jpg',
+	specularThreshold: 0.8,
 };
 
 const shinyBlueMat = {
@@ -721,7 +794,7 @@ const scene2 = {
 	shapes: [
 	    // sphere
 	    new QuadraticShape(
-	        texturedMat,
+	        shinyBlueMat,
 	        new Vec3(-1, -1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -795,7 +868,7 @@ const scene3 = {
 
 	    // sphere
 	    new QuadraticShape(
-	        texturedMat,
+	        shinyRedMat,
 	        new Vec3(1, 1, 6),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
