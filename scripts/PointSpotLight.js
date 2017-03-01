@@ -36,51 +36,10 @@ module.exports = class PointSpotLight extends Light {
 				if (debug) {
 					console.log('shadow', pos, intersectToLight, intersect.t, maxT);
 				}
-				return true;
+				return 0;
 			}
 		}
+
+        return 1;
 	}
-
-	computeCosTheta() {
-
-	}
-
-	// shade(intersect, sceneShapes, debug) {
-	// 	const resultColor = new Color(0, 0, 0);
-    //
-	// 	const pos = intersect.intersectionPoint;
-	// 	const mat = intersect.obj.mat;
-    //
-	// 	// resultColor.r += this.intensity * mat.kAmbient.r * this.color.r;
-	// 	// resultColor.g += this.intensity * mat.kAmbient.g * this.color.g;
-	// 	// resultColor.b += this.intensity * mat.kAmbient.b * this.color.b;
-    //
-	// 	if (this.shadowAttenuation(pos, sceneShapes, debug)) {
-	// 		return resultColor;
-	// 	}
-    //
-	// 	const pToLight = Vec3.subtract(this.position, pos);
-    //
-	// 	const pointLightCos = -Vec3.dot(this.direction, pToLight) / pToLight.magnitude();
-    //
-	// 	if (pointLightCos < this.angleCos) {
-	// 		// do nothing
-	// 	} else {
-	// 		const diffAngle = 1 - this.angleCos;
-	// 		const cutoff = 1 - diffAngle * (1 - this.dropoffCoeff);
-	// 		const spotLightAttenutation = 1 - Math.max(cutoff - pointLightCos, 0) / (diffAngle * this.dropoffCoeff);
-    //
-	// 		const lightDist = pToLight.magnitude();
-	// 		const distanceAttenuation = 1 / (1 + this.daCoeff * lightDist + this.daCoeff * lightDist * lightDist);
-    //
-	// 		const coeff = spotLightAttenutation * distanceAttenuation;
-    //
-	// 		const cosTheta = Math.max(0, Vec3.dot(intersect.normal, pToLight) / pToLight.magnitude());
-	// 		const specularCos = Math.max(0, Vec3.dot(intersect.reflDir, pToLight) / pToLight.magnitude());
-    //
-	// 		this.diffuseLight(resultColor, mat, cosTheta, specularCos, intersect.texCoord, coeff);
-	// 	}
-    //
-	// 	return resultColor;
-	// }
 }
