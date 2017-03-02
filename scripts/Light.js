@@ -8,7 +8,7 @@ module.exports = class Light {
 	}
 
 	shade(intersect, sceneShapes, debug) {
-		let r = 0, g = 0, b = 0;
+		const resultColor = new Color(0, 0, 0);
 
 		const pos = intersect.intersectionPoint;
 		const mat = intersect.obj.mat;
@@ -45,13 +45,13 @@ module.exports = class Light {
 		const specularCos = Math.max(0, -Vec3.dot(intersect.reflDir, lightDir));
         const specularCoeff = Math.pow(specularCos, mat.nSpecular);
 
-        r += coeff * this.intensity * this.color.r *
+        resultColor.r += coeff * this.intensity * this.color.r *
             (ambientColor.r + coeff * (diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
-        g += coeff * this.intensity * this.color.g *
+        resultColor.g += coeff * this.intensity * this.color.g *
             (ambientColor.g + coeff * (diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
-        b += coeff * this.intensity * this.color.b *
+        resultColor.b += coeff * this.intensity * this.color.b *
             (ambientColor.b + coeff * (diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
 
-		return new Color(r, g, b);
+		return resultColor;
 	}
 }

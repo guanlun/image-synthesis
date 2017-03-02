@@ -245,7 +245,7 @@ const scene3 = {
 
 	    // back plane
 	    new QuadraticShape(
-	        dullGreyMat,
+	        texturedMat,
 	        new Vec3(0, 0, 10),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -253,6 +253,10 @@ const scene3 = {
 	        1, 1, 1,
 	        0, 0, 0, 1, 0
 	    ),
+
+        new MeshObject(
+            'plane'
+        ),
 	],
 
 	lights: [

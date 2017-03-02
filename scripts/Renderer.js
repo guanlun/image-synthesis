@@ -5,7 +5,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(2);
+        this.selectScene(0);
 
         this.canvas = canvasElement;
 
@@ -122,7 +122,7 @@ module.exports = class Renderer {
         let closestIntersect;
 
         for (let shape of this.scene.shapes) {
-            const intersect = shape.intersect(ray);
+            const intersect = shape.intersect(ray, debug);
             if (intersect && (intersect.t < minT)) {
                 minT = intersect.t;
                 closestIntersect = intersect;

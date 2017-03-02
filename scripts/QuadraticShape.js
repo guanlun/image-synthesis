@@ -44,7 +44,7 @@ module.exports = class QuadraticShape {
 		}
 	}
 
-	intersect(ray) {
+	intersect(ray, debug) {
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;

@@ -102,7 +102,7 @@ module.exports = class Light {
 	}
 
 	shade(intersect, sceneShapes, debug) {
-		let r = 0, g = 0, b = 0;
+		const resultColor = new Color(0, 0, 0);
 
 		const pos = intersect.intersectionPoint;
 		const mat = intersect.obj.mat;
@@ -139,14 +139,14 @@ module.exports = class Light {
 		const specularCos = Math.max(0, -Vec3.dot(intersect.reflDir, lightDir));
         const specularCoeff = Math.pow(specularCos, mat.nSpecular);
 
-        r += coeff * this.intensity * this.color.r *
+        resultColor.r += coeff * this.intensity * this.color.r *
             (ambientColor.r + coeff * (diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
-        g += coeff * this.intensity * this.color.g *
+        resultColor.g += coeff * this.intensity * this.color.g *
             (ambientColor.g + coeff * (diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
-        b += coeff * this.intensity * this.color.b *
+        resultColor.b += coeff * this.intensity * this.color.b *
             (ambientColor.b + coeff * (diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
 
-		return new Color(r, g, b);
+		return resultColor;
 	}
 }
 
@@ -154,31 +154,33 @@ module.exports = class Light {
 const Vec3 = require('./Vec3');
 
 module.exports = class MeshObject {
-    constructor(objData) {
-        const lines = objData.split('\n');
+    constructor(objName) {
+        $.get(`/objects/${objName}.obj`, objData => {
+            const lines = objData.split('\n');
 
-        this.vertices = [];
-        this.faces = [];
+            this.vertices = [];
+            this.faces = [];
 
-        for (let line of lines) {
-            const segs = line.split(' ');
-            const type = segs[0];
+            for (let line of lines) {
+                const segs = line.split(' ');
+                const type = segs[0];
 
-            const n1 = parseInt(segs[1]),
-                n2 = parseInt(segs[2]),
-                n3 = parseInt(segs[3]);
+                const n1 = parseInt(segs[1]),
+                    n2 = parseInt(segs[2]),
+                    n3 = parseInt(segs[3]);
 
-            switch (type) {
-                case 'v':
-                    const vertex = new Vec3(n1, n2, n3);
-                    this.vertices.push(vertex);
-                    break;
-                case 'f':
-                    this.faces.push({
-                        vertices: [this.vertices[n1 - 1], this.vertices[n2 - 1], this.vertices[n3 - 1]],
-                    })
+                switch (type) {
+                    case 'v':
+                        const vertex = new Vec3(n1, n2, n3);
+                        this.vertices.push(vertex);
+                        break;
+                    case 'f':
+                        this.faces.push({
+                            vertices: [this.vertices[n1 - 1], this.vertices[n2 - 1], this.vertices[n3 - 1]],
+                        })
+                }
             }
-        }
+        });
     }
 
     intersect(ray) {
@@ -187,7 +189,7 @@ module.exports = class MeshObject {
             const v1 = Vec3.subtract(vertices[1], vertices[0]);
             const v2 = Vec3.subtract(vertices[2], vertices[0]);
 
-            
+
         }
     }
 }
@@ -286,7 +288,7 @@ module.exports = class QuadraticShape {
 		}
 	}
 
-	intersect(ray) {
+	intersect(ray, debug) {
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;
@@ -394,7 +396,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(2);
+        this.selectScene(0);
 
         this.canvas = canvasElement;
 
@@ -511,7 +513,7 @@ module.exports = class Renderer {
         let closestIntersect;
 
         for (let shape of this.scene.shapes) {
-            const intersect = shape.intersect(ray);
+            const intersect = shape.intersect(ray, debug);
             if (intersect && (intersect.t < minT)) {
                 minT = intersect.t;
                 closestIntersect = intersect;
@@ -776,7 +778,7 @@ const scene3 = {
 
 	    // back plane
 	    new QuadraticShape(
-	        dullGreyMat,
+	        texturedMat,
 	        new Vec3(0, 0, 10),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -784,6 +786,10 @@ const scene3 = {
 	        1, 1, 1,
 	        0, 0, 0, 1, 0
 	    ),
+
+        new MeshObject(
+            'plane'
+        ),
 	],
 
 	lights: [
@@ -879,7 +885,10 @@ window.onload = () => {
     const canvasEl = document.getElementById('canvas');
 
     const renderer = new Renderer(canvasEl);
-    renderer.render();
+
+    setTimeout(() => {
+        renderer.render();
+    }, 500);
 
     $('#rerender-button').click(() => renderer.render());
 

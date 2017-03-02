@@ -4,7 +4,10 @@ window.onload = () => {
     const canvasEl = document.getElementById('canvas');
 
     const renderer = new Renderer(canvasEl);
-    renderer.render();
+
+    setTimeout(() => {
+        renderer.render();
+    }, 500);
 
     $('#rerender-button').click(() => renderer.render());
 
