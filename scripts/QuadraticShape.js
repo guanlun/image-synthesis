@@ -111,7 +111,7 @@ module.exports = class QuadraticShape {
 
 		let u, v;
 
-		if (this.mat.diffuseMap) {
+		if (this.mat.diffuseMap || this.mat.proceduralTexture) {
 			const tex0 = Vec3.dot(this.n0, relPos) / this.s0;
 			const tex1 = Vec3.dot(this.n1, relPos) / this.s1;
 			const tex2 = Vec3.dot(this.n2, relPos) / this.s2;

@@ -24,7 +24,7 @@ module.exports = class Camera {
     }
 }
 
-},{"./Ray":8,"./Vec3":12}],2:[function(require,module,exports){
+},{"./Ray":8,"./Vec3":13}],2:[function(require,module,exports){
 function clamp(n) {
     if (n > 1) return 1;
     if (n < 0) return 0;
@@ -91,7 +91,7 @@ module.exports = class DirectionalLight extends Light {
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":12}],4:[function(require,module,exports){
+},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":13}],4:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 
@@ -129,8 +129,15 @@ module.exports = class Light {
 				(mat.diffuseMap.data[idx + 2]) / 255
 			);
 			specularColor = diffuseColor;
-        } else {
+        } else if (mat.proceduralTexture) {
+            diffuseColor = mat.proceduralTexture(intersect.texCoord.u, intersect.texCoord.v, debug);
+            specularColor = diffuseColor;
 
+            if (debug) {
+                console.log(intersect);
+            }
+
+        } else {
             diffuseColor = mat.kDiffuse;
             specularColor = mat.kSpecular;
         }
@@ -139,27 +146,22 @@ module.exports = class Light {
 		const specularCos = Math.max(0, -Vec3.dot(intersect.reflDir, lightDir));
         const specularCoeff = Math.pow(specularCos, mat.nSpecular);
 
-        resultColor.r += coeff * this.intensity * this.color.r *
+        resultColor.r += this.intensity * this.color.r *
             (ambientColor.r + coeff * (diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
-        resultColor.g += coeff * this.intensity * this.color.g *
+        resultColor.g += this.intensity * this.color.g *
             (ambientColor.g + coeff * (diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
-        resultColor.b += coeff * this.intensity * this.color.b *
+        resultColor.b += this.intensity * this.color.b *
             (ambientColor.b + coeff * (diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
 
 		return resultColor;
 	}
 }
 
-},{"./Color":2,"./Vec3":12}],5:[function(require,module,exports){
+},{"./Color":2,"./Vec3":13}],5:[function(require,module,exports){
 const Vec3 = require('./Vec3');
+const Triangle = require('./Triangle');
 
 const EPSILON = 0.0001;
-
-// class Face {
-//     constructor() {
-//
-//     }
-// }
 
 module.exports = class MeshObject {
     constructor(mat, objName) {
@@ -168,6 +170,8 @@ module.exports = class MeshObject {
             const lines = objData.split('\n');
 
             this.vertices = [];
+            this.texCoords = [];
+            this.normals = [];
             this.faces = [];
 
             for (let line of lines) {
@@ -178,33 +182,43 @@ module.exports = class MeshObject {
                 const segs = line.split(' ');
                 const type = segs[0];
 
-                const n1 = parseInt(segs[1]),
-                    n2 = parseInt(segs[2]),
-                    n3 = parseInt(segs[3]);
-
                 switch (type) {
                     case 'v':
-                        const vertex = new Vec3(n1, n2, n3);
-                        this.vertices.push(vertex);
+                        this.vertices.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), parseFloat(segs[3])));
+                        break;
+                    case 'vt':
+                        this.texCoords.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), 0));
+                        break;
+                    case 'vn':
+                        this.normals.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), parseFloat(segs[3])));
                         break;
                     case 'f':
-                        this.faces.push({
-                            vertices: [this.vertices[n1 - 1], this.vertices[n2 - 1], this.vertices[n3 - 1]],
-                        });
+                        const vertices = [];
+
+                        segs.slice(1).forEach(seg => {
+                            const [vi, ti, ni] = seg.split('/').map(n => parseInt(n) - 1);
+                            vertices.push({
+                                pos: this.vertices[vi],
+                                texCoord: this.texCoords[ti],
+                                normal: this.normals[ni],
+                            });
+                        })
+
+                        this.faces.push(new Triangle(vertices));
                         break;
                 }
             }
         });
     }
 
-    intersect(ray) {
+    intersect(ray, debug) {
         var minT = Number.MAX_VALUE;
         var intersect;
 
         for (let face of this.faces) {
             const vertices = face.vertices;
-            const e1 = Vec3.subtract(vertices[1], vertices[0]);
-            const e2 = Vec3.subtract(vertices[2], vertices[0]);
+            const e1 = Vec3.subtract(vertices[1].pos, vertices[0].pos);
+            const e2 = Vec3.subtract(vertices[2].pos, vertices[0].pos);
 
             const p = Vec3.cross(ray.dir, e2);
             const det = Vec3.dot(e1, p);
@@ -214,7 +228,7 @@ module.exports = class MeshObject {
             }
 
             const invDet = 1 / det;
-            var t = Vec3.subtract(ray.startingPos, vertices[0]);
+            var t = Vec3.subtract(ray.startingPos, vertices[0].pos);
 
             const u = Vec3.dot(t, p) * invDet;
 
@@ -234,13 +248,23 @@ module.exports = class MeshObject {
             if (t < minT) {
                 minT = t;
 
+                const texCoord = Vec3.add(
+                    Vec3.scalarProd(u, vertices[1].texCoord),
+                    Vec3.scalarProd(v, vertices[2].texCoord),
+                    Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
+                );
+
                 intersect = {
                     t: t,
                     rayDir: ray.dir,
         			intersectionPoint: ray.at(t),
-                    normal: Vec3.cross(e1, e2),
-                    reflDir: Vec3.cross(e1, e2), // TODO
+                    normal: Vec3.normalize(Vec3.cross(e2, e1)),
+                    reflDir: Vec3.normalize(Vec3.cross(e2, e1)), // TODO
                     obj: this,
+                    texCoord: {
+                        u: texCoord.x,
+                        v: texCoord.y,
+                    }
                 }
             }
         }
@@ -249,7 +273,7 @@ module.exports = class MeshObject {
     }
 }
 
-},{"./Vec3":12}],6:[function(require,module,exports){
+},{"./Triangle":12,"./Vec3":13}],6:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
@@ -296,7 +320,7 @@ module.exports = class PointSpotLight extends Light {
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":12}],7:[function(require,module,exports){
+},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":13}],7:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
@@ -410,7 +434,7 @@ module.exports = class QuadraticShape {
 
 		let u, v;
 
-		if (this.mat.diffuseMap) {
+		if (this.mat.diffuseMap || this.mat.proceduralTexture) {
 			const tex0 = Vec3.dot(this.n0, relPos) / this.s0;
 			const tex1 = Vec3.dot(this.n1, relPos) / this.s1;
 			const tex2 = Vec3.dot(this.n2, relPos) / this.s2;
@@ -434,7 +458,7 @@ module.exports = class QuadraticShape {
 	}
 }
 
-},{"./Vec3":12}],8:[function(require,module,exports){
+},{"./Vec3":13}],8:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Ray {
@@ -448,7 +472,7 @@ module.exports = class Ray {
     }
 }
 
-},{"./Vec3":12}],9:[function(require,module,exports){
+},{"./Vec3":13}],9:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const Scene = require('./Scene');
@@ -580,7 +604,9 @@ module.exports = class Renderer {
             }
         }
 
-        color = this._shade(closestIntersect, debug);
+        if (closestIntersect) {
+            color = this._shade(closestIntersect, debug);
+        }
 
         if (debug) {
             console.log('-------------------------------------');
@@ -590,7 +616,7 @@ module.exports = class Renderer {
     }
 }
 
-},{"./Color":2,"./Ray":8,"./Scene":10,"./Vec3":12}],10:[function(require,module,exports){
+},{"./Color":2,"./Ray":8,"./Scene":10,"./Vec3":13}],10:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Shape = require('./Shape');
 const Color = require('./Color');
@@ -599,6 +625,56 @@ const MeshObject = require('./MeshObject');
 const Camera = require('./Camera');
 const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
+
+function complexSquare(c) {
+    return {
+        real: c.real * c.real - c.imagine * c.imagine,
+        imagine: 2 * c.real * c.imagine,
+    };
+}
+
+function complexModSquare(c) {
+    return c.real * c.real + c.imagine * c.imagine;
+}
+
+function complexAdd(c1, c2) {
+    return {
+        real: c1.real + c2.real,
+        imagine: c1.imagine + c2.imagine,
+    };
+}
+
+const juliaSetMat = {
+    nSpecular: 20,
+    kAmbient: new Color(0.1, 0.1, 0.1),
+    specularThreshold: 0.8,
+    proceduralTexture: (x, y, debug) => {
+        const c = {
+            real: -0.5,
+            imagine: 0.5,
+        };
+
+        var z = {
+            real: x,
+            imagine: y,
+        };
+
+        // var zOld = complex;
+        // var zNew;
+
+        var iter = 0;
+
+        do {
+            z = complexAdd(complexSquare(z), c);
+            iter++;
+            if (debug) {
+                console.log(x, y, z);
+            }
+        } while (complexModSquare(z) < 4 && iter < 30);
+
+        return new Color(iter / 30, 0, 0);
+    },
+}
 
 const texturedMat = {
 	nSpecular: 20,
@@ -816,19 +892,8 @@ const scene3 = {
 	shapes: [
 	    // sphere
 	    new QuadraticShape(
-	        shinyBlueMat,
-	        new Vec3(-1, -2, 8),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.2, 1.2, 1.2,
-	        1, 1, 1, 0, -1
-	    ),
-
-	    // sphere
-	    new QuadraticShape(
-	        texturedMat,
-	        new Vec3(1, 1, 6),
+	        juliaSetMat,
+	        new Vec3(1, 1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
 	        new Vec3(1, 0, 0),
@@ -848,7 +913,7 @@ const scene3 = {
 	    ),
 
         new MeshObject(
-            shinyBlueMat,
+            juliaSetMat,
             'plane'
         ),
 	],
@@ -871,7 +936,7 @@ const scene3 = {
 
 module.exports = [scene1, scene2, scene3];
 
-},{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./MeshObject":5,"./PointSpotLight":6,"./QuadraticShape":7,"./Shape":11,"./Vec3":12}],11:[function(require,module,exports){
+},{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./MeshObject":5,"./PointSpotLight":6,"./QuadraticShape":7,"./Shape":11,"./Vec3":13}],11:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Shape {
@@ -880,7 +945,16 @@ module.exports = class Shape {
     }
 }
 
-},{"./Vec3":12}],12:[function(require,module,exports){
+},{"./Vec3":13}],12:[function(require,module,exports){
+const Vec3 = require('./Vec3');
+
+module.exports = class Triangle {
+    constructor(vertices) {
+        this.vertices = vertices;
+    }
+}
+
+},{"./Vec3":13}],13:[function(require,module,exports){
 module.exports = class Vec3 {
     constructor(x, y, z) {
         this.x = x;
@@ -939,7 +1013,7 @@ module.exports = class Vec3 {
     }
 }
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 const Renderer = require('./Renderer');
 
 window.onload = () => {
@@ -973,4 +1047,4 @@ window.onload = () => {
 
 }
 
-},{"./Renderer":9}]},{},[13]);
+},{"./Renderer":9}]},{},[14]);

@@ -129,7 +129,9 @@ module.exports = class Renderer {
             }
         }
 
-        color = this._shade(closestIntersect, debug);
+        if (closestIntersect) {
+            color = this._shade(closestIntersect, debug);
+        }
 
         if (debug) {
             console.log('-------------------------------------');

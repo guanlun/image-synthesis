@@ -35,8 +35,15 @@ module.exports = class Light {
 				(mat.diffuseMap.data[idx + 2]) / 255
 			);
 			specularColor = diffuseColor;
-        } else {
+        } else if (mat.proceduralTexture) {
+            diffuseColor = mat.proceduralTexture(intersect.texCoord.u, intersect.texCoord.v, debug);
+            specularColor = diffuseColor;
 
+            if (debug) {
+                console.log(intersect);
+            }
+
+        } else {
             diffuseColor = mat.kDiffuse;
             specularColor = mat.kSpecular;
         }
@@ -45,11 +52,11 @@ module.exports = class Light {
 		const specularCos = Math.max(0, -Vec3.dot(intersect.reflDir, lightDir));
         const specularCoeff = Math.pow(specularCos, mat.nSpecular);
 
-        resultColor.r += coeff * this.intensity * this.color.r *
+        resultColor.r += this.intensity * this.color.r *
             (ambientColor.r + coeff * (diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
-        resultColor.g += coeff * this.intensity * this.color.g *
+        resultColor.g += this.intensity * this.color.g *
             (ambientColor.g + coeff * (diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
-        resultColor.b += coeff * this.intensity * this.color.b *
+        resultColor.b += this.intensity * this.color.b *
             (ambientColor.b + coeff * (diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
 
 		return resultColor;

@@ -1,12 +1,7 @@
 const Vec3 = require('./Vec3');
+const Triangle = require('./Triangle');
 
 const EPSILON = 0.0001;
-
-// class Face {
-//     constructor() {
-//
-//     }
-// }
 
 module.exports = class MeshObject {
     constructor(mat, objName) {
@@ -15,6 +10,8 @@ module.exports = class MeshObject {
             const lines = objData.split('\n');
 
             this.vertices = [];
+            this.texCoords = [];
+            this.normals = [];
             this.faces = [];
 
             for (let line of lines) {
@@ -25,33 +22,43 @@ module.exports = class MeshObject {
                 const segs = line.split(' ');
                 const type = segs[0];
 
-                const n1 = parseInt(segs[1]),
-                    n2 = parseInt(segs[2]),
-                    n3 = parseInt(segs[3]);
-
                 switch (type) {
                     case 'v':
-                        const vertex = new Vec3(n1, n2, n3);
-                        this.vertices.push(vertex);
+                        this.vertices.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), parseFloat(segs[3])));
+                        break;
+                    case 'vt':
+                        this.texCoords.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), 0));
+                        break;
+                    case 'vn':
+                        this.normals.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), parseFloat(segs[3])));
                         break;
                     case 'f':
-                        this.faces.push({
-                            vertices: [this.vertices[n1 - 1], this.vertices[n2 - 1], this.vertices[n3 - 1]],
-                        });
+                        const vertices = [];
+
+                        segs.slice(1).forEach(seg => {
+                            const [vi, ti, ni] = seg.split('/').map(n => parseInt(n) - 1);
+                            vertices.push({
+                                pos: this.vertices[vi],
+                                texCoord: this.texCoords[ti],
+                                normal: this.normals[ni],
+                            });
+                        })
+
+                        this.faces.push(new Triangle(vertices));
                         break;
                 }
             }
         });
     }
 
-    intersect(ray) {
+    intersect(ray, debug) {
         var minT = Number.MAX_VALUE;
         var intersect;
 
         for (let face of this.faces) {
             const vertices = face.vertices;
-            const e1 = Vec3.subtract(vertices[1], vertices[0]);
-            const e2 = Vec3.subtract(vertices[2], vertices[0]);
+            const e1 = Vec3.subtract(vertices[1].pos, vertices[0].pos);
+            const e2 = Vec3.subtract(vertices[2].pos, vertices[0].pos);
 
             const p = Vec3.cross(ray.dir, e2);
             const det = Vec3.dot(e1, p);
@@ -61,7 +68,7 @@ module.exports = class MeshObject {
             }
 
             const invDet = 1 / det;
-            var t = Vec3.subtract(ray.startingPos, vertices[0]);
+            var t = Vec3.subtract(ray.startingPos, vertices[0].pos);
 
             const u = Vec3.dot(t, p) * invDet;
 
@@ -81,13 +88,23 @@ module.exports = class MeshObject {
             if (t < minT) {
                 minT = t;
 
+                const texCoord = Vec3.add(
+                    Vec3.scalarProd(u, vertices[1].texCoord),
+                    Vec3.scalarProd(v, vertices[2].texCoord),
+                    Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
+                );
+
                 intersect = {
                     t: t,
                     rayDir: ray.dir,
         			intersectionPoint: ray.at(t),
-                    normal: Vec3.cross(e1, e2),
-                    reflDir: Vec3.cross(e1, e2), // TODO
+                    normal: Vec3.normalize(Vec3.cross(e2, e1)),
+                    reflDir: Vec3.normalize(Vec3.cross(e2, e1)), // TODO
                     obj: this,
+                    texCoord: {
+                        u: texCoord.x,
+                        v: texCoord.y,
+                    }
                 }
             }
         }
