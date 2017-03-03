@@ -245,7 +245,7 @@ const scene3 = {
 
 	    // back plane
 	    new QuadraticShape(
-	        texturedMat,
+	        dullGreyMat,
 	        new Vec3(0, 0, 10),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -255,6 +255,7 @@ const scene3 = {
 	    ),
 
         new MeshObject(
+            shinyBlueMat,
             'plane'
         ),
 	],

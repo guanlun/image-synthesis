@@ -90,7 +90,7 @@ module.exports = class QuadraticShape {
 			return;
 		}
 
-		const intersectionPoint = Vec3.add(ray.startingPos, Vec3.scalarProd(t, ray.dir));
+		const intersectionPoint = ray.at(t);
 
 		const relPos = Vec3.subtract(intersectionPoint, this.pCenter);
 		const normal = Vec3.normalize(Vec3.add(

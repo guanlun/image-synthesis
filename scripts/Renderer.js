@@ -5,7 +5,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(0);
+        this.selectScene(2);
 
         this.canvas = canvasElement;
 

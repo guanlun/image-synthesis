@@ -5,4 +5,8 @@ module.exports = class Ray {
 		this.startingPos = startingPos;
 		this.dir = Vec3.normalize(dir);
 	}
+
+    at(t) {
+        return Vec3.add(this.startingPos, Vec3.scalarProd(t, this.dir));
+    }
 }
