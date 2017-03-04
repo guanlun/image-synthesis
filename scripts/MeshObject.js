@@ -57,11 +57,9 @@ module.exports = class MeshObject {
 
         for (let face of this.faces) {
             const vertices = face.vertices;
-            const e1 = Vec3.subtract(vertices[1].pos, vertices[0].pos);
-            const e2 = Vec3.subtract(vertices[2].pos, vertices[0].pos);
 
-            const p = Vec3.cross(ray.dir, e2);
-            const det = Vec3.dot(e1, p);
+            const p = Vec3.cross(ray.dir, face.e2);
+            const det = Vec3.dot(face.e1, p);
 
             if (det > -EPSILON && det < EPSILON) {
                 continue;
@@ -76,14 +74,14 @@ module.exports = class MeshObject {
                 continue;
             }
 
-            const q = Vec3.cross(t, e1);
+            const q = Vec3.cross(t, face.e1);
             const v = Vec3.dot(ray.dir, q) * invDet;
 
             if (v < 0 || u + v > 1) {
                 continue;
             }
 
-            t = Vec3.dot(e2, q) * invDet;
+            t = Vec3.dot(face.e2, q) * invDet;
 
             if (t < minT) {
                 minT = t;
@@ -94,12 +92,23 @@ module.exports = class MeshObject {
                     Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
                 );
 
+        		const reflDir = Vec3.normalize(
+        			Vec3.subtract(ray.dir,
+        				Vec3.scalarProd(
+        					2 * Vec3.dot(ray.dir, face.normal),
+        					face.normal
+        				)
+        			)
+        		);
+
                 intersect = {
                     t: t,
                     rayDir: ray.dir,
         			intersectionPoint: ray.at(t),
-                    normal: Vec3.normalize(Vec3.cross(e2, e1)),
-                    reflDir: Vec3.normalize(Vec3.cross(e2, e1)), // TODO
+                    normal: face.normal,
+                    tangent: face.tangent,
+                    bitangent: face.bitangent,
+                    reflDir: reflDir,
                     obj: this,
                     texCoord: {
                         u: texCoord.x,

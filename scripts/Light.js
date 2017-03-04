@@ -17,7 +17,33 @@ module.exports = class Light {
 
         const coeff = this.shadowAttenuation(pos, sceneShapes, debug) * this.distanceAttenuation(pos);
 
-		const cosTheta = Math.max(0, -Vec3.dot(intersect.normal, lightDir));
+        var normal;
+
+        if (mat.normalMap) {
+            const width = mat.normalMap.width;
+			const height = mat.normalMap.height;
+
+			const x = Math.round(intersect.texCoord.u * mat.normalMap.width);
+			const y = Math.round(intersect.texCoord.v * mat.normalMap.height);
+
+			const idx = (y * width + x) * 4;
+
+			const normalMapColor = new Color(
+				(mat.normalMap.data[idx]) / 255,
+				(mat.normalMap.data[idx + 1]) / 255,
+				(mat.normalMap.data[idx + 2]) / 255
+			);
+
+            normal = Vec3.normalize(Vec3.add(
+                Vec3.scalarProd(normalMapColor.r, intersect.tangent),
+                Vec3.scalarProd(normalMapColor.g, intersect.bitangent),
+                Vec3.scalarProd(normalMapColor.b, intersect.normal)
+            ));
+        } else {
+            normal = intersect.normal;
+        }
+
+        const cosTheta = Math.max(0, -Vec3.dot(normal, lightDir));
 
         var ambientColor, diffuseColor, specularColor;
         if (mat.diffuseMap) {

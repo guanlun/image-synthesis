@@ -20,28 +20,6 @@ module.exports = class QuadraticShape {
 		this.a22 = a22;
 		this.a21 = a21;
 		this.a00 = a00;
-
-		if (this.mat.diffuseMapSrc !== undefined) {
-			const img = new Image();
-			img.src = `img/${mat.diffuseMapSrc}`;
-
-			img.onload = () => {
-				console.log("Texture loaded:", mat.diffuseMapSrc);
-
-				const canvas = document.createElement('canvas');
-				canvas.width = img.width;
-				canvas.height = img.height;
-
-				const ctx = canvas.getContext('2d');
-				ctx.drawImage(img, 0, 0, img.width, img.height);
-
-				this.mat.diffuseMap = {
-					width: img.width,
-					height: img.height,
-					data: ctx.getImageData(0, 0, img.width, img.height).data,
-				}
-			};
-		}
 	}
 
 	intersect(ray, debug) {

@@ -111,7 +111,33 @@ module.exports = class Light {
 
         const coeff = this.shadowAttenuation(pos, sceneShapes, debug) * this.distanceAttenuation(pos);
 
-		const cosTheta = Math.max(0, -Vec3.dot(intersect.normal, lightDir));
+        var normal;
+
+        if (mat.normalMap) {
+            const width = mat.normalMap.width;
+			const height = mat.normalMap.height;
+
+			const x = Math.round(intersect.texCoord.u * mat.normalMap.width);
+			const y = Math.round(intersect.texCoord.v * mat.normalMap.height);
+
+			const idx = (y * width + x) * 4;
+
+			const normalMapColor = new Color(
+				(mat.normalMap.data[idx]) / 255,
+				(mat.normalMap.data[idx + 1]) / 255,
+				(mat.normalMap.data[idx + 2]) / 255
+			);
+
+            normal = Vec3.normalize(Vec3.add(
+                Vec3.scalarProd(normalMapColor.r, intersect.tangent),
+                Vec3.scalarProd(normalMapColor.g, intersect.bitangent),
+                Vec3.scalarProd(normalMapColor.b, intersect.normal)
+            ));
+        } else {
+            normal = intersect.normal;
+        }
+
+        const cosTheta = Math.max(0, -Vec3.dot(normal, lightDir));
 
         var ambientColor, diffuseColor, specularColor;
         if (mat.diffuseMap) {
@@ -217,11 +243,9 @@ module.exports = class MeshObject {
 
         for (let face of this.faces) {
             const vertices = face.vertices;
-            const e1 = Vec3.subtract(vertices[1].pos, vertices[0].pos);
-            const e2 = Vec3.subtract(vertices[2].pos, vertices[0].pos);
 
-            const p = Vec3.cross(ray.dir, e2);
-            const det = Vec3.dot(e1, p);
+            const p = Vec3.cross(ray.dir, face.e2);
+            const det = Vec3.dot(face.e1, p);
 
             if (det > -EPSILON && det < EPSILON) {
                 continue;
@@ -236,14 +260,14 @@ module.exports = class MeshObject {
                 continue;
             }
 
-            const q = Vec3.cross(t, e1);
+            const q = Vec3.cross(t, face.e1);
             const v = Vec3.dot(ray.dir, q) * invDet;
 
             if (v < 0 || u + v > 1) {
                 continue;
             }
 
-            t = Vec3.dot(e2, q) * invDet;
+            t = Vec3.dot(face.e2, q) * invDet;
 
             if (t < minT) {
                 minT = t;
@@ -254,12 +278,23 @@ module.exports = class MeshObject {
                     Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
                 );
 
+        		const reflDir = Vec3.normalize(
+        			Vec3.subtract(ray.dir,
+        				Vec3.scalarProd(
+        					2 * Vec3.dot(ray.dir, face.normal),
+        					face.normal
+        				)
+        			)
+        		);
+
                 intersect = {
                     t: t,
                     rayDir: ray.dir,
         			intersectionPoint: ray.at(t),
-                    normal: Vec3.normalize(Vec3.cross(e2, e1)),
-                    reflDir: Vec3.normalize(Vec3.cross(e2, e1)), // TODO
+                    normal: face.normal,
+                    tangent: face.tangent,
+                    bitangent: face.bitangent,
+                    reflDir: reflDir,
                     obj: this,
                     texCoord: {
                         u: texCoord.x,
@@ -343,28 +378,6 @@ module.exports = class QuadraticShape {
 		this.a22 = a22;
 		this.a21 = a21;
 		this.a00 = a00;
-
-		if (this.mat.diffuseMapSrc !== undefined) {
-			const img = new Image();
-			img.src = `img/${mat.diffuseMapSrc}`;
-
-			img.onload = () => {
-				console.log("Texture loaded:", mat.diffuseMapSrc);
-
-				const canvas = document.createElement('canvas');
-				canvas.width = img.width;
-				canvas.height = img.height;
-
-				const ctx = canvas.getContext('2d');
-				ctx.drawImage(img, 0, 0, img.width, img.height);
-
-				this.mat.diffuseMap = {
-					width: img.width,
-					height: img.height,
-					data: ctx.getImageData(0, 0, img.width, img.height).data,
-				}
-			};
-		}
 	}
 
 	intersect(ray, debug) {
@@ -644,99 +657,148 @@ function complexAdd(c1, c2) {
     };
 }
 
-const juliaSetMat = {
-    nSpecular: 20,
-    kAmbient: new Color(0.1, 0.1, 0.1),
-    specularThreshold: 0.8,
-    proceduralTexture: (x, y, debug) => {
-        const c = {
-            real: -0.5,
-            imagine: 0.5,
-        };
+const materials = {
+    juliaSetMat: {
+        nSpecular: 20,
+        kAmbient: new Color(0.1, 0.1, 0.1),
+        specularThreshold: 0.8,
+        proceduralTexture: (x, y, debug) => {
+            const c = {
+                real: -0.7,
+                imagine: 0.27,
+            };
 
-        var z = {
-            real: x,
-            imagine: y,
-        };
+            var z = {
+                real: x,
+                imagine: y,
+            };
 
-        // var zOld = complex;
-        // var zNew;
+            var iter = 0;
 
-        var iter = 0;
+            do {
+                z = complexAdd(complexSquare(z), c);
+                iter++;
+                if (debug) {
+                    console.log(x, y, z);
+                }
+            } while (complexModSquare(z) < 4 && iter < 30);
 
-        do {
-            z = complexAdd(complexSquare(z), c);
-            iter++;
-            if (debug) {
-                console.log(x, y, z);
-            }
-        } while (complexModSquare(z) < 4 && iter < 30);
-
-        return new Color(iter / 30, 0, 0);
+            return new Color(iter / 30, iter / 30, 1 - iter / 30);
+        },
     },
+
+    perlinNoiseMat: {
+        nSpecular: 20,
+        kAmbient: new Color(0.1, 0.1, 0.1),
+        specularThreshold: 0.8,
+        proceduralTexture: (x, y, debug) => {
+        },
+    },
+
+    texturedMat: {
+    	nSpecular: 20,
+        kAmbient: new Color(0.1, 0.1, 0.1),
+    	kSpecular: new Color(1, 1, 1),
+    	diffuseMapSrc: 'cb.jpg',
+        normalMapSrc: 'normal.jpg',
+    	specularThreshold: 0.8,
+    },
+
+    shinyBlueMat: {
+        normalMapSrc: 'normal.jpg',
+    	kAmbient: new Color(0.1, 0.1, 0.2),
+    	kDiffuse: new Color(0.5, 0.5, 1),
+    	kSpecular: new Color(0.3, 0.3, 0.6),
+    	nSpecular: 20,
+    	specularThreshold: 0.8,
+    },
+
+    shinyRedMat: {
+    	kAmbient: new Color(0.2, 0.1, 0.1),
+    	kDiffuse: new Color(1, 0.5, 0.5),
+    	kSpecular: new Color(1, 0.5, 0.5),
+    	nSpecular: 5,
+    	specularThreshold: 0.95,
+    },
+
+    dullRedMat: {
+    	kAmbient: new Color(0.2, 0.1, 0.1),
+    	kDiffuse: new Color(1, 0.5, 0.5),
+    	kSpecular: new Color(0.2, 0.1, 0.1),
+    	nSpecular: 100,
+    	specularThreshold: 0.8,
+    },
+
+    dullGreenMat: {
+    	kAmbient: new Color(0.1, 0.2, 0.1),
+    	kDiffuse: new Color(0.5, 1, 0.5),
+    	kSpecular: new Color(0.1, 0.2, 0.1),
+    	nSpecular: 100,
+    	specularThreshold: 0.8,
+    },
+
+    dullGreyMat: {
+    	kAmbient: new Color(0.1, 0.1, 0.1),
+    	kDiffuse: new Color(0.6, 0.6, 0.6),
+    	kSpecular: new Color(0.1, 0.1, 0.1),
+    	nSpecular: 100,
+    	specularThreshold: 0.8,
+    },
+
+    shinyGreyMat: {
+    	kAmbient: new Color(0.1, 0.1, 0.1),
+    	kDiffuse: new Color(0.6, 0.6, 0.6),
+    	kSpecular: new Color(0.6, 0.6, 0.6),
+    	nSpecular: 20,
+    	specularThreshold: 0.8,
+    },
+};
+
+// const textureLoadingStatus = {};
+
+function loadTextureImage(src, cb) {
+    const img = new Image();
+    img.src = `img/${src}`;
+
+    img.onload = () => {
+        console.log("Texture loaded:", src);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, img.width, img.height);
+
+        cb({
+            width: img.width,
+            height: img.height,
+            data: ctx.getImageData(0, 0, img.width, img.height).data,
+        });
+    };
 }
 
-const texturedMat = {
-	nSpecular: 20,
-    kAmbient: new Color(0.1, 0.1, 0.1),
-	kSpecular: new Color(1, 1, 1),
-	diffuseMapSrc: 'cb.jpg',
-	specularThreshold: 0.8,
-};
+for (var matName in materials) {
+    const mat = materials[matName];
 
-const shinyBlueMat = {
-	kAmbient: new Color(0.1, 0.1, 0.2),
-	kDiffuse: new Color(0.5, 0.5, 1),
-	kSpecular: new Color(0.3, 0.3, 0.6),
-	nSpecular: 20,
-	specularThreshold: 0.8,
-};
+    if (mat.diffuseMapSrc) {
+        loadTextureImage(mat.diffuseMapSrc, textureData => {
+            mat.diffuseMap = textureData;
+        });
+    }
 
-const shinyRedMat = {
-	kAmbient: new Color(0.2, 0.1, 0.1),
-	kDiffuse: new Color(1, 0.5, 0.5),
-	kSpecular: new Color(1, 0.5, 0.5),
-	nSpecular: 5,
-	specularThreshold: 0.95,
-};
-
-const dullRedMat = {
-	kAmbient: new Color(0.2, 0.1, 0.1),
-	kDiffuse: new Color(1, 0.5, 0.5),
-	kSpecular: new Color(0.2, 0.1, 0.1),
-	nSpecular: 100,
-	specularThreshold: 0.8,
-};
-
-const dullGreenMat = {
-	kAmbient: new Color(0.1, 0.2, 0.1),
-	kDiffuse: new Color(0.5, 1, 0.5),
-	kSpecular: new Color(0.1, 0.2, 0.1),
-	nSpecular: 100,
-	specularThreshold: 0.8,
-};
-
-const dullGreyMat = {
-	kAmbient: new Color(0.1, 0.1, 0.1),
-	kDiffuse: new Color(0.6, 0.6, 0.6),
-	kSpecular: new Color(0.1, 0.1, 0.1),
-	nSpecular: 100,
-	specularThreshold: 0.8,
+    if (mat.normalMapSrc) {
+        loadTextureImage(mat.normalMapSrc, textureData => {
+            mat.normalMap = textureData;
+        });
+    }
 }
-
-const shinyGreyMat = {
-	kAmbient: new Color(0.1, 0.1, 0.1),
-	kDiffuse: new Color(0.6, 0.6, 0.6),
-	kSpecular: new Color(0.6, 0.6, 0.6),
-	nSpecular: 20,
-	specularThreshold: 0.8,
-};
 
 const scene1 = {
 	shapes: [
 	    // cylinder
 	    new QuadraticShape(
-	        shinyGreyMat,
+	        materials.shinyGreyMat,
 	        new Vec3(1.6, 1, 4),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 1, 0),
@@ -746,7 +808,7 @@ const scene1 = {
 	    ),
 	    // sphere
 	    new QuadraticShape(
-	        shinyBlueMat,
+	        materials.shinyBlueMat,
 	        new Vec3(-1, -1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -756,7 +818,7 @@ const scene1 = {
 	    ),
 	    // bottom plane
 	    new QuadraticShape(
-	        shinyGreyMat,
+	        materials.shinyGreyMat,
 	        new Vec3(0, -2, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 1, 0),
@@ -766,7 +828,7 @@ const scene1 = {
 	    ),
 	    // left plane
 	    new QuadraticShape(
-	        dullRedMat,
+	        materials.dullRedMat,
 	        new Vec3(-3, 0, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(1, 0, 0),
@@ -776,7 +838,7 @@ const scene1 = {
 	    ),
 	    // right plane
 	    new QuadraticShape(
-	        dullGreenMat,
+	        materials.dullGreenMat,
 	        new Vec3(3, 0, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(-1, 0, 0),
@@ -786,7 +848,7 @@ const scene1 = {
 	    ),
 	    // back plane
 	    new QuadraticShape(
-	        shinyGreyMat,
+	        materials.shinyGreyMat,
 	        new Vec3(0, 0, 5),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -796,7 +858,7 @@ const scene1 = {
 	    ),
 	    // top plane
 	    new QuadraticShape(
-	        shinyGreyMat,
+	        materials.shinyGreyMat,
 	        new Vec3(0, 3, 0),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, -1, 0),
@@ -829,7 +891,7 @@ const scene2 = {
 	shapes: [
 	    // sphere
 	    new QuadraticShape(
-	        shinyBlueMat,
+	        materials.shinyBlueMat,
 	        new Vec3(-1, -1, 4),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -840,7 +902,7 @@ const scene2 = {
 
 	    // sphere
 	    new QuadraticShape(
-	        dullRedMat,
+	        materials.dullRedMat,
 	        new Vec3(1, 1, 6),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
@@ -851,7 +913,7 @@ const scene2 = {
 
 	    // back plane
 	    new QuadraticShape(
-	        dullGreyMat,
+	        materials.dullGreyMat,
 	        new Vec3(0, 0, 10),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -891,19 +953,19 @@ const scene2 = {
 const scene3 = {
 	shapes: [
 	    // sphere
-	    new QuadraticShape(
-	        juliaSetMat,
-	        new Vec3(1, 1, 4),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.5, 1.5, 1.5,
-	        1, 1, 1, 0, -1
-	    ),
+	    // new QuadraticShape(
+	    //     materials.juliaSetMat,
+	    //     new Vec3(1, 1, 4),
+	    //     new Vec3(0, 0, 1),
+	    //     new Vec3(0, 1, 0),
+	    //     new Vec3(1, 0, 0),
+	    //     1.5, 1.5, 1.5,
+	    //     1, 1, 1, 0, -1
+	    // ),
 
 	    // back plane
 	    new QuadraticShape(
-	        dullGreyMat,
+	        materials.dullGreyMat,
 	        new Vec3(0, 0, 10),
 	        new Vec3(0, 0, 0),
 	        new Vec3(0, 0, -1),
@@ -913,7 +975,7 @@ const scene3 = {
 	    ),
 
         new MeshObject(
-            juliaSetMat,
+            materials.shinyBlueMat,
             'plane'
         ),
 	],
@@ -951,6 +1013,44 @@ const Vec3 = require('./Vec3');
 module.exports = class Triangle {
     constructor(vertices) {
         this.vertices = vertices;
+
+        this.e1 = Vec3.subtract(vertices[1].pos, vertices[0].pos);
+        this.e2 = Vec3.subtract(vertices[2].pos, vertices[0].pos);
+
+        this.normal = Vec3.normalize(Vec3.cross(this.e2, this.e1));
+
+        this.calculateTangentSpace();
+    }
+
+    calculateTangentSpace() {
+        const v1 = this.vertices[0];
+        const v2 = this.vertices[1];
+        const v3 = this.vertices[2];
+
+        const x1 = v2.pos.x - v1.pos.x;
+        const y1 = v2.pos.y - v1.pos.y;
+        const z1 = v2.pos.z - v1.pos.z;
+        const x2 = v3.pos.x - v1.pos.x;
+        const y2 = v3.pos.y - v1.pos.y;
+        const z2 = v3.pos.z - v1.pos.z;
+
+        const s1 = v2.texCoord.x - v1.texCoord.x;
+        const t1 = v2.texCoord.y - v1.texCoord.y;
+        const s2 = v3.texCoord.x - v1.texCoord.x;
+        const t2 = v3.texCoord.y - v1.texCoord.y;
+
+        const r = 1 / (s1 * t2 - s2 * t1);
+
+        this.tangent = Vec3.normalize(new Vec3((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r));
+        this.bitangent = Vec3.normalize(new Vec3((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r));
+
+        // v1.tangent = sdir;
+        // v2.tangent = sdir;
+        // v3.tangent = sdir;
+        //
+        // v1.bitangent = tdir;
+        // v2.bitangent = tdir;
+        // v3.bitangent = tdir;
     }
 }
 
