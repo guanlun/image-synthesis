@@ -87,15 +87,20 @@ module.exports = class QuadraticShape {
 			)
 		);
 
-		let u, v;
+		let u, v, tangent, bitangent;
 
-		if (this.mat.diffuseMap || this.mat.proceduralTexture) {
+		if (this.mat.diffuseMap || this.mat.normalMap || this.mat.proceduralTexture) {
 			const tex0 = Vec3.dot(this.n0, relPos) / this.s0;
 			const tex1 = Vec3.dot(this.n1, relPos) / this.s1;
 			const tex2 = Vec3.dot(this.n2, relPos) / this.s2;
 
 			v = Math.acos(tex2) / Math.PI;
 			u = Math.acos(tex1 / Math.sin(Math.PI * v)) / (Math.PI * 2);
+
+            if (this.mat.normalMap) {
+                tangent = Vec3.normalize(Vec3.cross(ray.dir, normal));
+                bitangent = Vec3.normalize(Vec3.cross(tangent, normal));
+            }
 		}
 
 		return {
@@ -103,6 +108,8 @@ module.exports = class QuadraticShape {
 			rayDir: ray.dir,
 			intersectionPoint: intersectionPoint,
 			normal: normal,
+            tangent: tangent,
+            bitangent: bitangent,
 			reflDir: reflDir,
 			obj: this,
 			texCoord: {

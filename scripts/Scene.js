@@ -321,15 +321,15 @@ const scene2 = {
 const scene3 = {
 	shapes: [
 	    // sphere
-	    // new QuadraticShape(
-	    //     materials.juliaSetMat,
-	    //     new Vec3(1, 1, 4),
-	    //     new Vec3(0, 0, 1),
-	    //     new Vec3(0, 1, 0),
-	    //     new Vec3(1, 0, 0),
-	    //     1.5, 1.5, 1.5,
-	    //     1, 1, 1, 0, -1
-	    // ),
+	    new QuadraticShape(
+	        materials.shinyBlueMat,
+	        new Vec3(1, 1, 4),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1.5, 1.5, 1.5,
+	        1, 1, 1, 0, -1
+	    ),
 
 	    // back plane
 	    new QuadraticShape(
