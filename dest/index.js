@@ -228,7 +228,7 @@ module.exports = class MeshObject {
                                 texCoord: this.texCoords[ti],
                                 normal: this.normals[ni],
                             });
-                        })
+                        });
 
                         this.faces.push(new Triangle(vertices));
                         break;
@@ -272,12 +272,6 @@ module.exports = class MeshObject {
             if (t < minT) {
                 minT = t;
 
-                const texCoord = Vec3.add(
-                    Vec3.scalarProd(u, vertices[1].texCoord),
-                    Vec3.scalarProd(v, vertices[2].texCoord),
-                    Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
-                );
-
         		const reflDir = Vec3.normalize(
         			Vec3.subtract(ray.dir,
         				Vec3.scalarProd(
@@ -287,16 +281,37 @@ module.exports = class MeshObject {
         			)
         		);
 
+                var normal;
+
+                if (this.mat.smoothing) {
+                    normal = Vec3.add(
+                        Vec3.scalarProd(u, vertices[1].normal),
+                        Vec3.scalarProd(v, vertices[2].normal),
+                        Vec3.scalarProd(1 - u - v, vertices[0].normal)
+                    );
+                } else {
+                    normal = face.normal;
+                }
+
                 intersect = {
                     t: t,
                     rayDir: ray.dir,
         			intersectionPoint: ray.at(t),
-                    normal: face.normal,
+                    normal: normal,
                     tangent: face.tangent,
                     bitangent: face.bitangent,
                     reflDir: reflDir,
                     obj: this,
-                    texCoord: {
+                }
+
+                if (vertices[0].texCoord) {
+                    const texCoord = Vec3.add(
+                        Vec3.scalarProd(u, vertices[1].texCoord),
+                        Vec3.scalarProd(v, vertices[2].texCoord),
+                        Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
+                    );
+
+                    intersect.texCoord = {
                         u: texCoord.x,
                         v: texCoord.y,
                     }
@@ -500,7 +515,7 @@ const Ray = require('./Ray');
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(2);
+        this.selectScene(0);
 
         this.canvas = canvasElement;
 
@@ -694,25 +709,23 @@ const materials = {
         },
     },
 
-    perlinNoiseMat: {
-        nSpecular: 20,
-        kAmbient: new Color(0.1, 0.1, 0.1),
-        specularThreshold: 0.8,
-        proceduralTexture: (x, y, debug) => {
-        },
-    },
-
-    texturedMat: {
+    checkerboardMat: {
     	nSpecular: 20,
         kAmbient: new Color(0.1, 0.1, 0.1),
     	kSpecular: new Color(1, 1, 1),
     	diffuseMapSrc: 'cb.jpg',
-        normalMapSrc: 'normal.jpg',
+    	specularThreshold: 0.8,
+    },
+
+    woodMat: {
+    	nSpecular: 20,
+        kAmbient: new Color(0.1, 0.1, 0.1),
+    	kSpecular: new Color(1, 1, 1),
+    	diffuseMapSrc: 'wood.jpg',
     	specularThreshold: 0.8,
     },
 
     shinyBlueMat: {
-        normalMapSrc: 'normal.jpg',
     	kAmbient: new Color(0.1, 0.1, 0.2),
     	kDiffuse: new Color(0.5, 0.5, 1),
     	kSpecular: new Color(0.3, 0.3, 0.6),
@@ -726,6 +739,7 @@ const materials = {
     	kSpecular: new Color(1, 0.5, 0.5),
     	nSpecular: 5,
     	specularThreshold: 0.95,
+        normalMapSrc: 'plate.jpg',
     },
 
     dullRedMat: {
@@ -759,9 +773,16 @@ const materials = {
     	nSpecular: 20,
     	specularThreshold: 0.8,
     },
-};
 
-// const textureLoadingStatus = {};
+    treeMat: {
+        kAmbient: new Color(0.1, 0.2, 0.1),
+    	kDiffuse: new Color(0.5, 1, 0.5),
+    	kSpecular: new Color(0.1, 0.2, 0.1),
+    	nSpecular: 100,
+    	specularThreshold: 0.8,
+        smoothing: true,
+    }
+};
 
 function loadTextureImage(src, cb) {
     const img = new Image();
@@ -802,78 +823,23 @@ for (var matName in materials) {
 }
 
 const scene1 = {
-	shapes: [
-	    // cylinder
-	    new QuadraticShape(
-	        materials.shinyGreyMat,
-	        new Vec3(1.6, 1, 4),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        0.5, 0.5, 0.5,
-	        1, 1, 0, 0, -1
-	    ),
-	    // sphere
-	    new QuadraticShape(
-	        materials.shinyBlueMat,
-	        new Vec3(-1, -1, 4),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.2, 1.2, 1.2,
-	        1, 1, 1, 0, -1
-	    ),
-	    // bottom plane
-	    new QuadraticShape(
-	        materials.shinyGreyMat,
-	        new Vec3(0, -2, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // left plane
-	    new QuadraticShape(
-	        materials.dullRedMat,
-	        new Vec3(-3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // right plane
-	    new QuadraticShape(
-	        materials.dullGreenMat,
-	        new Vec3(3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(-1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // back plane
-	    new QuadraticShape(
-	        materials.shinyGreyMat,
-	        new Vec3(0, 0, 5),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 0, -1),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // top plane
-	    new QuadraticShape(
-	        materials.shinyGreyMat,
-	        new Vec3(0, 3, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, -1, 0),
-	        new Vec3(0, 0, 1),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	],
+    shapes: [
+        // back plane
+        new QuadraticShape(
+            materials.dullGreyMat,
+            new Vec3(0, 0, 10),
+            new Vec3(0, 0, 0),
+            new Vec3(0, 0, -1),
+            new Vec3(0, 1, 0),
+            1, 1, 1,
+            0, 0, 0, 1, 0
+        ),
+
+        new MeshObject(
+            materials.woodMat,
+            'tex-cube'
+        ),
+    ],
 
 	lights: [
 	    new PointSpotLight(
@@ -895,29 +861,7 @@ const scene1 = {
 };
 
 const scene2 = {
-	shapes: [
-	    // sphere
-	    new QuadraticShape(
-	        materials.shinyBlueMat,
-	        new Vec3(-1, -1, 4),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.2, 1.2, 1.2,
-	        1, 1, 1, 0, -1
-	    ),
-
-	    // sphere
-	    new QuadraticShape(
-	        materials.dullRedMat,
-	        new Vec3(1, 1, 6),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1, 1, 1,
-	        1, 1, 1, 0, -1
-	    ),
-
+    shapes: [
 	    // back plane
 	    new QuadraticShape(
 	        materials.dullGreyMat,
@@ -928,6 +872,16 @@ const scene2 = {
 	        1, 1, 1,
 	        0, 0, 0, 1, 0
 	    ),
+
+        new MeshObject(
+            materials.shinyBlueMat,
+            'cube'
+        ),
+
+        new MeshObject(
+            materials.shinyBlueMat,
+            'tetrahedron'
+        ),
 	],
 
 	lights: [
@@ -959,17 +913,6 @@ const scene2 = {
 
 const scene3 = {
 	shapes: [
-	    // sphere
-	    new QuadraticShape(
-	        materials.shinyBlueMat,
-	        new Vec3(1, 1, 4),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.5, 1.5, 1.5,
-	        1, 1, 1, 0, -1
-	    ),
-
 	    // back plane
 	    new QuadraticShape(
 	        materials.dullGreyMat,
@@ -982,14 +925,14 @@ const scene3 = {
 	    ),
 
         new MeshObject(
-            materials.shinyBlueMat,
-            'plane'
+            materials.treeMat,
+            'tree'
         ),
 	],
 
 	lights: [
 	    new DirectionalLight(
-	        new Vec3(-0.5, -0.5, 1),
+	        new Vec3(1, -1, 1),
 	        new Color(1, 1, 1),
 	        1
 	    ),
@@ -1024,7 +967,11 @@ module.exports = class Triangle {
         this.e1 = Vec3.subtract(vertices[1].pos, vertices[0].pos);
         this.e2 = Vec3.subtract(vertices[2].pos, vertices[0].pos);
 
-        this.normal = Vec3.normalize(Vec3.cross(this.e2, this.e1));
+        if (vertices[0].normal) {
+            this.normal = vertices[0].normal;
+        } else {
+            this.normal = Vec3.normalize(Vec3.cross(this.e2, this.e1));
+        }
 
         this.calculateTangentSpace();
     }
@@ -1041,15 +988,17 @@ module.exports = class Triangle {
         const y2 = v3.pos.y - v1.pos.y;
         const z2 = v3.pos.z - v1.pos.z;
 
-        const s1 = v2.texCoord.x - v1.texCoord.x;
-        const t1 = v2.texCoord.y - v1.texCoord.y;
-        const s2 = v3.texCoord.x - v1.texCoord.x;
-        const t2 = v3.texCoord.y - v1.texCoord.y;
+        if (v1.texCoord) {
+            const s1 = v2.texCoord.x - v1.texCoord.x;
+            const t1 = v2.texCoord.y - v1.texCoord.y;
+            const s2 = v3.texCoord.x - v1.texCoord.x;
+            const t2 = v3.texCoord.y - v1.texCoord.y;
 
-        const r = 1 / (s1 * t2 - s2 * t1);
+            const r = 1 / (s1 * t2 - s2 * t1);
 
-        this.tangent = Vec3.normalize(new Vec3((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r));
-        this.bitangent = Vec3.normalize(new Vec3((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r));
+            this.tangent = Vec3.normalize(new Vec3((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r));
+            this.bitangent = Vec3.normalize(new Vec3((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r));
+        }
 
         // v1.tangent = sdir;
         // v2.tangent = sdir;

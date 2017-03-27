@@ -42,7 +42,7 @@ module.exports = class MeshObject {
                                 texCoord: this.texCoords[ti],
                                 normal: this.normals[ni],
                             });
-                        })
+                        });
 
                         this.faces.push(new Triangle(vertices));
                         break;
@@ -86,12 +86,6 @@ module.exports = class MeshObject {
             if (t < minT) {
                 minT = t;
 
-                const texCoord = Vec3.add(
-                    Vec3.scalarProd(u, vertices[1].texCoord),
-                    Vec3.scalarProd(v, vertices[2].texCoord),
-                    Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
-                );
-
         		const reflDir = Vec3.normalize(
         			Vec3.subtract(ray.dir,
         				Vec3.scalarProd(
@@ -101,16 +95,37 @@ module.exports = class MeshObject {
         			)
         		);
 
+                var normal;
+
+                if (this.mat.smoothing) {
+                    normal = Vec3.add(
+                        Vec3.scalarProd(u, vertices[1].normal),
+                        Vec3.scalarProd(v, vertices[2].normal),
+                        Vec3.scalarProd(1 - u - v, vertices[0].normal)
+                    );
+                } else {
+                    normal = face.normal;
+                }
+
                 intersect = {
                     t: t,
                     rayDir: ray.dir,
         			intersectionPoint: ray.at(t),
-                    normal: face.normal,
+                    normal: normal,
                     tangent: face.tangent,
                     bitangent: face.bitangent,
                     reflDir: reflDir,
                     obj: this,
-                    texCoord: {
+                }
+
+                if (vertices[0].texCoord) {
+                    const texCoord = Vec3.add(
+                        Vec3.scalarProd(u, vertices[1].texCoord),
+                        Vec3.scalarProd(v, vertices[2].texCoord),
+                        Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
+                    );
+
+                    intersect.texCoord = {
                         u: texCoord.x,
                         v: texCoord.y,
                     }

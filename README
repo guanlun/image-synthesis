@@ -1,1 +1,1 @@
-To run the program, simply open index.html.
+Run "python -m SimpleHTTPServer 8000" in this directory and open "http://localhost:8000/".
