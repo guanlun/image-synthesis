@@ -6,9 +6,16 @@ function clamp(n) {
 
 module.exports = class Color {
     constructor(r, g, b) {
-        this.r = clamp(r);
-        this.g = clamp(g);
-        this.b = clamp(b);
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.clamp();
+    }
+
+    clamp() {
+        this.r = clamp(this.r);
+        this.g = clamp(this.g);
+        this.b = clamp(this.b);
     }
 
     toHexString() {

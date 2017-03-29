@@ -1,7 +1,8 @@
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
-	constructor(mat, pCenter, p0, p1, v1, s0, s1, s2, a02, a12, a22, a21, a00) {
+	constructor(name, mat, pCenter, p0, p1, v1, s0, s1, s2, a02, a12, a22, a21, a00) {
+        this.name = name;
 		this.mat = mat;
 		this.pCenter = pCenter;
 

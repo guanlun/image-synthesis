@@ -104,6 +104,57 @@ module.exports = class Renderer {
         return new Color(r, g, b);
     }
 
+    _traceRay(ray, depth, debug) {
+        let color;
+        let minT = Number.MAX_VALUE;
+        let closestIntersect;
+
+        if (debug) {
+            console.log(depth);
+        }
+
+        for (let shape of this.scene.shapes) {
+            const intersect = shape.intersect(ray, debug);
+            if (intersect && (intersect.t < minT)) {
+                minT = intersect.t;
+                closestIntersect = intersect;
+            }
+        }
+
+        if (closestIntersect) {
+            if (debug) {
+                console.log(closestIntersect.obj);
+            }
+            color = this._shade(closestIntersect, debug);
+
+            const obj = closestIntersect.obj;
+            const mat = obj.mat;
+
+            if (mat.isReflective) {
+                if (debug) {
+                    console.log(closestIntersect);
+                }
+
+                const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
+
+                const reflColor = this._traceRay(reflRay, depth + 1, debug);
+
+                if (debug) {
+                    console.log(reflColor);
+                }
+
+                if (reflColor) {
+                    const coeff = 0.5;
+                    color.r += reflColor.r;
+                    color.g += reflColor.g;
+                    color.b += reflColor.b;
+                }
+            }
+        }
+
+        return color;
+    }
+
     _computeColorAtPos(x, y, debug) {
         const crossPlaneWidth = 2;
         const crossPlaneHeight = crossPlaneWidth / this.canvas.width * this.canvas.height;
@@ -117,25 +168,8 @@ module.exports = class Renderer {
 
         const ray = this.scene.camera.createRay(xPos, yPos);
 
-        let color;
-        let minT = Number.MAX_VALUE;
-        let closestIntersect;
-
-        for (let shape of this.scene.shapes) {
-            const intersect = shape.intersect(ray, debug);
-            if (intersect && (intersect.t < minT)) {
-                minT = intersect.t;
-                closestIntersect = intersect;
-            }
-        }
-
-        if (closestIntersect) {
-            color = this._shade(closestIntersect, debug);
-        }
-
-        if (debug) {
-            console.log('-------------------------------------');
-        }
+        const color = this._traceRay(ray, 0, debug);
+        color.clamp();
 
         return color || new Color(0, 0, 0);
     }
