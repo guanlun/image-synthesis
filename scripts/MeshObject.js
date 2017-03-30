@@ -1,10 +1,11 @@
 const Vec3 = require('./Vec3');
+const Color = require('./Color');
 const Triangle = require('./Triangle');
 
 const EPSILON = 0.0001;
 
 module.exports = class MeshObject {
-    constructor(mat, objName) {
+    constructor(mat, objName, offset) {
         this.mat = mat;
         $.get(`/objects/${objName}.obj`, objData => {
             const lines = objData.split('\n');
@@ -24,7 +25,14 @@ module.exports = class MeshObject {
 
                 switch (type) {
                     case 'v':
-                        this.vertices.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), parseFloat(segs[3])));
+                        const pos = new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), parseFloat(segs[3]));
+
+                        if (offset) {
+                            pos.x += offset.x;
+                            pos.y += offset.y;
+                            pos.z += offset.z;
+                        }
+                        this.vertices.push(pos);
                         break;
                     case 'vt':
                         this.texCoords.push(new Vec3(parseFloat(segs[1]), parseFloat(segs[2]), 0));
@@ -86,15 +94,6 @@ module.exports = class MeshObject {
             if (t < minT) {
                 minT = t;
 
-        		const reflDir = Vec3.normalize(
-        			Vec3.subtract(ray.dir,
-        				Vec3.scalarProd(
-        					2 * Vec3.dot(ray.dir, face.normal),
-        					face.normal
-        				)
-        			)
-        		);
-
                 var normal;
 
                 if (this.mat.smoothing) {
@@ -107,6 +106,52 @@ module.exports = class MeshObject {
                     normal = face.normal;
                 }
 
+                var texCoord;
+
+                if (vertices[0].texCoord) {
+                    const coords = Vec3.add(
+                        Vec3.scalarProd(u, vertices[1].texCoord),
+                        Vec3.scalarProd(v, vertices[2].texCoord),
+                        Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
+                    );
+
+                    texCoord = {
+                        u: coords.x,
+                        v: coords.y,
+                    };
+                }
+
+                if (this.mat.normalMap) {
+                    const width = this.mat.normalMap.width;
+        			const height = this.mat.normalMap.height;
+
+        			const x = Math.round(texCoord.u * this.mat.normalMap.width);
+        			const y = Math.round(texCoord.v * this.mat.normalMap.height);
+
+        			const idx = (y * width + x) * 4;
+
+        			const normalMapColor = new Color(
+        				(this.mat.normalMap.data[idx]) / 255,
+        				(this.mat.normalMap.data[idx + 1]) / 255,
+        				(this.mat.normalMap.data[idx + 2]) / 255
+        			);
+
+                    normal = Vec3.normalize(Vec3.add(
+                        Vec3.scalarProd(normalMapColor.r, face.tangent),
+                        Vec3.scalarProd(normalMapColor.g, face.bitangent),
+                        Vec3.scalarProd(normalMapColor.b, normal)
+                    ));
+                }
+
+        		const reflDir = Vec3.normalize(
+        			Vec3.subtract(ray.dir,
+        				Vec3.scalarProd(
+        					2 * Vec3.dot(ray.dir, face.normal),
+        					normal
+        				)
+        			)
+        		);
+
                 intersect = {
                     t: t,
                     rayDir: ray.dir,
@@ -116,20 +161,8 @@ module.exports = class MeshObject {
                     bitangent: face.bitangent,
                     reflDir: reflDir,
                     obj: this,
-                }
-
-                if (vertices[0].texCoord) {
-                    const texCoord = Vec3.add(
-                        Vec3.scalarProd(u, vertices[1].texCoord),
-                        Vec3.scalarProd(v, vertices[2].texCoord),
-                        Vec3.scalarProd(1 - u - v, vertices[0].texCoord)
-                    );
-
-                    intersect.texCoord = {
-                        u: texCoord.x,
-                        v: texCoord.y,
-                    }
-                }
+                    texCoord: texCoord,
+                };
             }
         }
 

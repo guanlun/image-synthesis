@@ -104,7 +104,7 @@ module.exports = class Renderer {
         return new Color(r, g, b);
     }
 
-    _traceRay(ray, depth, debug) {
+    _traceRay(ray, depth, envMap, debug) {
         let color;
         let minT = Number.MAX_VALUE;
         let closestIntersect;
@@ -115,7 +115,7 @@ module.exports = class Renderer {
 
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray, debug);
-            if (intersect && (intersect.t < minT)) {
+            if (intersect && (intersect.t > 0) && (intersect.t < minT)) {
                 minT = intersect.t;
                 closestIntersect = intersect;
             }
@@ -123,33 +123,57 @@ module.exports = class Renderer {
 
         if (closestIntersect) {
             if (debug) {
-                console.log(closestIntersect.obj);
+                console.log(closestIntersect);
             }
             color = this._shade(closestIntersect, debug);
 
             const obj = closestIntersect.obj;
             const mat = obj.mat;
 
-            if (mat.isReflective) {
+            if (mat.isReflective && (depth < 3)) {
                 if (debug) {
                     console.log(closestIntersect);
                 }
 
                 const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
 
-                const reflColor = this._traceRay(reflRay, depth + 1, debug);
-
-                if (debug) {
-                    console.log(reflColor);
-                }
+                const reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
 
                 if (reflColor) {
                     const coeff = 0.5;
-                    color.r += reflColor.r;
-                    color.g += reflColor.g;
-                    color.b += reflColor.b;
+                    color.r += reflColor.r * mat.kReflective.r;
+                    color.g += reflColor.g * mat.kReflective.g;
+                    color.b += reflColor.b * mat.kReflective.b;
                 }
             }
+        } else if (envMap) {
+            const theta = Math.atan2(ray.dir.x, ray.dir.z);
+            const phi = Math.PI * 0.5 - Math.acos(ray.dir.y);
+
+            const u = (theta + Math.PI) * (0.5 / Math.PI);
+            const v = 1 - 0.5 * (1 + Math.sin(phi));
+
+            if (debug) {
+                console.log(u, v);
+                console.log(envMap);
+            }
+
+            const x = Math.round(u * envMap.width);
+            const y = Math.round(v * envMap.height);
+
+            const idx = (y * envMap.width + x) * 4;
+
+            color = new Color(
+                (envMap.data[idx]) / 255,
+                (envMap.data[idx + 1]) / 255,
+                (envMap.data[idx + 2]) / 255
+            );
+
+            // if (debug) {
+            //     console.log(envColor);
+            // }
+
+            // color = envColor;
         }
 
         return color;
@@ -168,9 +192,12 @@ module.exports = class Renderer {
 
         const ray = this.scene.camera.createRay(xPos, yPos);
 
-        const color = this._traceRay(ray, 0, debug);
-        color.clamp();
-
-        return color || new Color(0, 0, 0);
+        const color = this._traceRay(ray, 0, this.scene.envMap, debug);
+        if (color) {
+            color.clamp();
+            return color;
+        } else {
+            return new Color(0, 0, 0);
+        }
     }
 }
