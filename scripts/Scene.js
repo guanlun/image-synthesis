@@ -139,6 +139,18 @@ const materials = {
         specularThreshold: 0.8,
     },
 
+    refractiveMat: {
+        kAmbient: new Color(0.1, 0.1, 0.1),
+        kDiffuse: new Color(0.1, 0.1, 0.1),
+        kSpecular: new Color(1, 1, 1),
+        isRefractive: true,
+        kRefractive: new Color(0.7, 0.7, 0.7),
+        nSpecular: 50,
+        specularThreshold: 0.8,
+        ior: 1.2,
+        transparency: 0.9,
+    },
+
     normalReflectiveMat: {
         kAmbient: new Color(0.1, 0.1, 0.1),
         kDiffuse: new Color(0.1, 0.1, 0.1),
@@ -200,15 +212,15 @@ loadTextureImage(envMapSrc, textureData => {
 const scene1 = {
     shapes: [
         new MeshObject(
-            materials.reflectiveMat,
+            materials.shinyBlueMat,
             'cube',
-            new Vec3(1, -1.5, 3)
+            new Vec3(-0.5, -0.5, 5)
         ),
 	    // sphere
 	    new QuadraticShape(
             "sphere",
-	        materials.reflectiveMat,
-	        new Vec3(-1, 1, 4),
+	        materials.refractiveMat,
+	        new Vec3(-1, 0, 2),
 	        new Vec3(0, 0, 1),
 	        new Vec3(0, 1, 0),
 	        new Vec3(1, 0, 0),

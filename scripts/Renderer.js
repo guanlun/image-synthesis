@@ -3,6 +3,8 @@ const Color = require('./Color');
 const Scene = require('./Scene');
 const Ray = require('./Ray');
 
+const EPSILON = 0.001;
+
 module.exports = class Renderer {
     constructor(canvasElement) {
         this.selectScene(0);
@@ -115,7 +117,7 @@ module.exports = class Renderer {
 
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray, debug);
-            if (intersect && (intersect.t > 0) && (intersect.t < minT)) {
+            if (intersect && (intersect.t > EPSILON) && (intersect.t < minT)) {
                 minT = intersect.t;
                 closestIntersect = intersect;
             }
@@ -130,20 +132,61 @@ module.exports = class Renderer {
             const obj = closestIntersect.obj;
             const mat = obj.mat;
 
-            if (mat.isReflective && (depth < 3)) {
-                if (debug) {
-                    console.log(closestIntersect);
+            if (depth < 6) {
+                if (mat.isReflective) {
+                    const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
+
+                    const reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+
+                    if (reflColor) {
+                        const coeff = 0.5;
+                        color.r += reflColor.r * mat.kReflective.r;
+                        color.g += reflColor.g * mat.kReflective.g;
+                        color.b += reflColor.b * mat.kReflective.b;
+                    }
                 }
 
-                const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
+                if (mat.isRefractive) {
+                    const NL = -Vec3.dot(closestIntersect.normal, ray.dir);
 
-                const reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+                    var refrColor;
 
-                if (reflColor) {
-                    const coeff = 0.5;
-                    color.r += reflColor.r * mat.kReflective.r;
-                    color.g += reflColor.g * mat.kReflective.g;
-                    color.b += reflColor.b * mat.kReflective.b;
+                    if (NL > 0) {
+                        const pn = 1 / mat.ior;
+
+                        const longTerm = pn * NL - Math.sqrt(1 - pn * pn * (1 - NL * NL));
+
+                        const refrDir = Vec3.add(
+                            Vec3.scalarProd(longTerm, closestIntersect.normal),
+                            Vec3.scalarProd(pn, ray.dir)
+                        );
+
+                        const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
+                        refrColor = this._traceRay(refrRay, depth + 1, envMap, debug);
+                    } else {
+                        const pn = mat.ior;
+
+                        const bSquare = 1 - pn * pn * (1 - NL * NL);
+
+                        if (bSquare > 0) {
+                            const longTerm = -(pn * (-NL) - Math.sqrt(bSquare));
+
+                            const refrDir = Vec3.add(
+                                Vec3.scalarProd(longTerm, closestIntersect.normal),
+                                Vec3.scalarProd(pn, ray.dir)
+                            );
+
+                            const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
+                            refrColor = this._traceRay(refrRay, depth + 1, envMap, debug);
+                        }
+                    }
+
+                    if (refrColor) {
+                        const coeff = 1;
+                        color.r += coeff * refrColor.r * mat.kRefractive.r;
+                        color.g += coeff * refrColor.g * mat.kRefractive.g;
+                        color.b += coeff * refrColor.b * mat.kRefractive.b;
+                    }
                 }
             }
         } else if (envMap) {
@@ -168,12 +211,6 @@ module.exports = class Renderer {
                 (envMap.data[idx + 1]) / 255,
                 (envMap.data[idx + 2]) / 255
             );
-
-            // if (debug) {
-            //     console.log(envColor);
-            // }
-
-            // color = envColor;
         }
 
         return color;
