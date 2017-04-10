@@ -45,6 +45,10 @@ module.exports = class Color {
         this.b = clamp(this.b);
     }
 
+    toGreyScale() {
+        return (this.r + this.g + this.b) / 3;
+    }
+
     toHexString() {
         return `#${this.channelHex(this.r)}${this.channelHex(this.g)}${this.channelHex(this.b)}`;
     }
@@ -466,7 +470,7 @@ module.exports = class QuadraticShape {
 		const intersectionPoint = ray.at(t);
 
 		const relPos = Vec3.subtract(intersectionPoint, this.pCenter);
-        
+
 		const normal = Vec3.normalize(Vec3.add(
 			Vec3.scalarProd(2 * this.a02 * (Vec3.dot(this.n0, relPos) / Math.pow(this.s0, 2)), this.n0),
 			Vec3.scalarProd(2 * this.a12 * (Vec3.dot(this.n1, relPos) / Math.pow(this.s1, 2)), this.n1),
@@ -485,7 +489,7 @@ module.exports = class QuadraticShape {
 
 		let u, v, tangent, bitangent;
 
-		if (this.mat.diffuseMap || this.mat.normalMap || this.mat.proceduralTexture) {
+		if (this.mat.diffuseMap || this.mat.normalMap || this.mat.iorMap || this.mat.proceduralTexture) {
 			const tex0 = Vec3.dot(this.n0, relPos) / this.s0;
 			const tex1 = Vec3.dot(this.n1, relPos) / this.s1;
 			const tex2 = Vec3.dot(this.n2, relPos) / this.s2;
@@ -644,10 +648,6 @@ module.exports = class Renderer {
         let minT = Number.MAX_VALUE;
         let closestIntersect;
 
-        if (debug) {
-            console.log(depth);
-        }
-
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray, debug);
             if (intersect && (intersect.t > EPSILON) && (intersect.t < minT)) {
@@ -672,7 +672,6 @@ module.exports = class Renderer {
                     const reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
 
                     if (reflColor) {
-                        const coeff = 0.5;
                         color.r += reflColor.r * mat.kReflective.r;
                         color.g += reflColor.g * mat.kReflective.g;
                         color.b += reflColor.b * mat.kReflective.b;
@@ -682,10 +681,32 @@ module.exports = class Renderer {
                 if (mat.isRefractive) {
                     const NL = -Vec3.dot(closestIntersect.normal, ray.dir);
 
+                    var ior = mat.ior;
+
+                    if (mat.iorMap) {
+                        const width = mat.iorMap.width;
+            			const height = mat.iorMap.height;
+
+            			const x = Math.round(closestIntersect.texCoord.u * mat.iorMap.width);
+            			const y = Math.round(closestIntersect.texCoord.v * mat.iorMap.height);
+
+                        const idx = (y * width + x) * 4;
+
+            			const iorColor = new Color(
+            				(mat.iorMap.data[idx]) / 255,
+            				(mat.iorMap.data[idx + 1]) / 255,
+            				(mat.iorMap.data[idx + 2]) / 255
+            			);
+
+                        const iorGreyScale = iorColor.toGreyScale();
+
+                        ior = 1.1 + iorGreyScale * 0.2;
+                    }
+
                     var refrColor;
 
                     if (NL > 0) {
-                        const pn = 1 / mat.ior;
+                        const pn = 1 / ior;
 
                         const longTerm = pn * NL - Math.sqrt(1 - pn * pn * (1 - NL * NL));
 
@@ -697,7 +718,7 @@ module.exports = class Renderer {
                         const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
                         refrColor = this._traceRay(refrRay, depth + 1, envMap, debug);
                     } else {
-                        const pn = mat.ior;
+                        const pn = ior;
 
                         const bSquare = 1 - pn * pn * (1 - NL * NL);
 
@@ -936,6 +957,32 @@ const materials = {
         specularThreshold: 0.8,
         normalMapSrc: 'plate.jpg',
     },
+
+    normalRefractiveMat: {
+        kAmbient: new Color(0.1, 0.1, 0.1),
+        kDiffuse: new Color(0.1, 0.1, 0.1),
+        kSpecular: new Color(1, 1, 1),
+        isRefractive: true,
+        kRefractive: new Color(0.7, 0.7, 0.7),
+        nSpecular: 50,
+        specularThreshold: 0.8,
+        normalMapSrc: 'normal.jpg',
+        ior: 1.2,
+        transparency: 0.9,
+    },
+
+    textureIORRefractiveMat: {
+        kAmbient: new Color(0.1, 0.1, 0.1),
+        kDiffuse: new Color(0.1, 0.1, 0.1),
+        kSpecular: new Color(1, 1, 1),
+        isRefractive: true,
+        kRefractive: new Color(0.7, 0.7, 0.7),
+        nSpecular: 50,
+        specularThreshold: 0.8,
+        iorMapSrc: 'cb.jpg',
+        ior: 1.2,
+        transparency: 0.9,
+    },
 };
 
 function loadTextureImage(src, cb) {
@@ -974,6 +1021,12 @@ for (var matName in materials) {
             mat.normalMap = textureData;
         });
     }
+
+    if (mat.iorMapSrc) {
+        loadTextureImage(mat.iorMapSrc, textureData => {
+            mat.iorMap = textureData;
+        });
+    }
 }
 
 const envMapSrc = "env.jpg";
@@ -981,7 +1034,7 @@ let envMap;
 
 loadTextureImage(envMapSrc, textureData => {
     console.log(`Env map loaded: ${envMapSrc}`);
-    scene2.envMap = textureData;
+    scene3.envMap = textureData;
 });
 
 const scene1 = {
@@ -992,6 +1045,95 @@ const scene1 = {
             new Vec3(-0.5, -0.5, 5)
         ),
 	    // sphere
+        new MeshObject(
+            materials.refractiveMat,
+            'prism',
+            new Vec3(0, -0.5, 2)
+        ),
+	    // bottom plane
+	    new QuadraticShape(
+            "bottom plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, -2, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // left plane
+	    new QuadraticShape(
+            "left plane",
+	        materials.dullRedMat,
+	        new Vec3(-3, 0, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(1, 0, 0),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // right plane
+	    new QuadraticShape(
+            "right plane",
+	        materials.dullGreenMat,
+	        new Vec3(3, 0, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(-1, 0, 0),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // back plane
+	    new QuadraticShape(
+            "back plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, 0, 5),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 0, -1),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // top plane
+	    new QuadraticShape(
+            "top plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, 3, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, -1, 0),
+	        new Vec3(0, 0, 1),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	],
+
+	lights: [
+	    new PointSpotLight(
+	        new Vec3(1, 2.5, -2),
+	        new Vec3(-1, -2, 2),
+			0,
+			1,
+	        new Color(1, 1, 1),
+	        1
+	    ),
+	],
+
+	camera: new Camera(
+	    new Vec3(0, 0, -1),
+	    new Vec3(0, 0, 1),
+	    new Vec3(0, 1, 0),
+	    1
+	),
+};
+
+const scene2 = {
+    shapes: [
+        new MeshObject(
+            materials.shinyBlueMat,
+            'cube',
+            new Vec3(-0.5, -0.5, 5)
+        ),
+        // Sphere
 	    new QuadraticShape(
             "sphere",
 	        materials.refractiveMat,
@@ -1078,71 +1220,19 @@ const scene1 = {
 	),
 };
 
-const scene2 = {
-    shapes: [
-        new MeshObject(
-            materials.normalReflectiveMat,
-            'tex-cube',
-            new Vec3(1, 0, 3)
-        ),
-	    // sphere
-	    new QuadraticShape(
-            "sphere",
-	        materials.reflectiveMat,
-	        new Vec3(-1, 1, 4),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.2, 1.2, 1.2,
-	        1, 1, 1, 0, -1
-	    ),
-	],
-
-	lights: [
-	    new PointSpotLight(
-	        new Vec3(2, 2, -2),
-	        new Vec3(-0.5, -0.5, 1),
-			0.9,
-			0.8,
-	        new Color(1, 1, 1),
-	        1
-	    ),
-		new PointSpotLight(
-	        new Vec3(-3, 3, -1),
-	        new Vec3(0.7, -0.8, 1),
-			0.95,
-			0.1,
-	        new Color(1, 1, 1),
-	        0.3
-	    ),
-	],
-
-	camera: new Camera(
-	    new Vec3(0, 0, -1),
-	    new Vec3(0, 0, 1),
-	    new Vec3(0, 1, 0),
-	    1
-	),
-};
-
 const scene3 = {
     shapes: [
         new MeshObject(
-            materials.normalReflectiveMat,
-            'tex-cube',
-            new Vec3(1, -1.5, 0)
+            materials.shinyBlueMat,
+            'cube',
+            new Vec3(-0.5, -0.5, 5)
         ),
 	    // sphere
-	    new QuadraticShape(
-            "sphere",
-	        materials.reflectiveMat,
-	        new Vec3(-1, 1, 4),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.2, 1.2, 1.2,
-	        1, 1, 1, 0, -1
-	    ),
+        new MeshObject(
+            materials.normalRefractiveMat,
+            'prism',
+            new Vec3(0, 0.5, 2)
+        ),
 	    // bottom plane
 	    new QuadraticShape(
             "bottom plane",
@@ -1219,7 +1309,96 @@ const scene3 = {
 	),
 };
 
-module.exports = [scene1, scene2, scene3];
+const scene4 = {
+    shapes: [
+        new MeshObject(
+            materials.shinyBlueMat,
+            'cube',
+            new Vec3(-0.5, -0.5, 5)
+        ),
+	    // sphere
+        new MeshObject(
+            materials.textureIORRefractiveMat,
+            'tex-cube',
+            new Vec3(0, 0.5, -1)
+        ),
+	    // bottom plane
+	    new QuadraticShape(
+            "bottom plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, -2, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // left plane
+	    new QuadraticShape(
+            "left plane",
+	        materials.dullRedMat,
+	        new Vec3(-3, 0, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(1, 0, 0),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // right plane
+	    new QuadraticShape(
+            "right plane",
+	        materials.dullGreenMat,
+	        new Vec3(3, 0, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(-1, 0, 0),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // back plane
+	    new QuadraticShape(
+            "back plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, 0, 5),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 0, -1),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // top plane
+	    new QuadraticShape(
+            "top plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, 3, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, -1, 0),
+	        new Vec3(0, 0, 1),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	],
+
+	lights: [
+	    new PointSpotLight(
+	        new Vec3(1, 2.5, -2),
+	        new Vec3(-1, -2, 2),
+			0,
+			1,
+	        new Color(1, 1, 1),
+	        1
+	    ),
+	],
+
+	camera: new Camera(
+	    new Vec3(0, 0, -1),
+	    new Vec3(0, 0, 1),
+	    new Vec3(0, 1, 0),
+	    1
+	),
+};
+
+module.exports = [scene1, scene2, scene3, scene4];
 
 },{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./MeshObject":5,"./PointSpotLight":6,"./QuadraticShape":7,"./Shape":11,"./Vec3":13}],11:[function(require,module,exports){
 const Vec3 = require('./Vec3');

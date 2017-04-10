@@ -18,6 +18,10 @@ module.exports = class Color {
         this.b = clamp(this.b);
     }
 
+    toGreyScale() {
+        return (this.r + this.g + this.b) / 3;
+    }
+
     toHexString() {
         return `#${this.channelHex(this.r)}${this.channelHex(this.g)}${this.channelHex(this.b)}`;
     }

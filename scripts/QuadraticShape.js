@@ -72,7 +72,7 @@ module.exports = class QuadraticShape {
 		const intersectionPoint = ray.at(t);
 
 		const relPos = Vec3.subtract(intersectionPoint, this.pCenter);
-        
+
 		const normal = Vec3.normalize(Vec3.add(
 			Vec3.scalarProd(2 * this.a02 * (Vec3.dot(this.n0, relPos) / Math.pow(this.s0, 2)), this.n0),
 			Vec3.scalarProd(2 * this.a12 * (Vec3.dot(this.n1, relPos) / Math.pow(this.s1, 2)), this.n1),
@@ -91,7 +91,7 @@ module.exports = class QuadraticShape {
 
 		let u, v, tangent, bitangent;
 
-		if (this.mat.diffuseMap || this.mat.normalMap || this.mat.proceduralTexture) {
+		if (this.mat.diffuseMap || this.mat.normalMap || this.mat.iorMap || this.mat.proceduralTexture) {
 			const tex0 = Vec3.dot(this.n0, relPos) / this.s0;
 			const tex1 = Vec3.dot(this.n1, relPos) / this.s1;
 			const tex2 = Vec3.dot(this.n2, relPos) / this.s2;

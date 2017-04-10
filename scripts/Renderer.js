@@ -111,10 +111,6 @@ module.exports = class Renderer {
         let minT = Number.MAX_VALUE;
         let closestIntersect;
 
-        if (debug) {
-            console.log(depth);
-        }
-
         for (let shape of this.scene.shapes) {
             const intersect = shape.intersect(ray, debug);
             if (intersect && (intersect.t > EPSILON) && (intersect.t < minT)) {
@@ -139,7 +135,6 @@ module.exports = class Renderer {
                     const reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
 
                     if (reflColor) {
-                        const coeff = 0.5;
                         color.r += reflColor.r * mat.kReflective.r;
                         color.g += reflColor.g * mat.kReflective.g;
                         color.b += reflColor.b * mat.kReflective.b;
@@ -149,10 +144,32 @@ module.exports = class Renderer {
                 if (mat.isRefractive) {
                     const NL = -Vec3.dot(closestIntersect.normal, ray.dir);
 
+                    var ior = mat.ior;
+
+                    if (mat.iorMap) {
+                        const width = mat.iorMap.width;
+            			const height = mat.iorMap.height;
+
+            			const x = Math.round(closestIntersect.texCoord.u * mat.iorMap.width);
+            			const y = Math.round(closestIntersect.texCoord.v * mat.iorMap.height);
+
+                        const idx = (y * width + x) * 4;
+
+            			const iorColor = new Color(
+            				(mat.iorMap.data[idx]) / 255,
+            				(mat.iorMap.data[idx + 1]) / 255,
+            				(mat.iorMap.data[idx + 2]) / 255
+            			);
+
+                        const iorGreyScale = iorColor.toGreyScale();
+
+                        ior = 1.1 + iorGreyScale * 0.2;
+                    }
+
                     var refrColor;
 
                     if (NL > 0) {
-                        const pn = 1 / mat.ior;
+                        const pn = 1 / ior;
 
                         const longTerm = pn * NL - Math.sqrt(1 - pn * pn * (1 - NL * NL));
 
@@ -164,7 +181,7 @@ module.exports = class Renderer {
                         const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
                         refrColor = this._traceRay(refrRay, depth + 1, envMap, debug);
                     } else {
-                        const pn = mat.ior;
+                        const pn = ior;
 
                         const bSquare = 1 - pn * pn * (1 - NL * NL);
 
