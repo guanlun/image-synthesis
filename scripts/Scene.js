@@ -139,6 +139,17 @@ const materials = {
         specularThreshold: 0.8,
     },
 
+    glossyReflectiveMat: {
+        kAmbient: new Color(0.1, 0.1, 0.1),
+        kDiffuse: new Color(0.1, 0.1, 0.1),
+        kSpecular: new Color(1, 1, 1),
+        isReflective: true,
+        kReflective: new Color(0.7, 0.7, 0.7),
+        nSpecular: 50,
+        specularThreshold: 0.8,
+        isGlossy: true,
+    },
+
     refractiveMat: {
         kAmbient: new Color(0.1, 0.1, 0.1),
         kDiffuse: new Color(0.1, 0.1, 0.1),
@@ -250,7 +261,7 @@ const scene1 = {
         ),
 	    // sphere
         new MeshObject(
-            materials.refractiveMat,
+            materials.glossyReflectiveMat,
             'prism',
             new Vec3(0, -0.5, 2)
         ),

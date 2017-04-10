@@ -667,9 +667,32 @@ module.exports = class Renderer {
 
             if (depth < 6) {
                 if (mat.isReflective) {
-                    const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
+                    var reflColor;
 
-                    const reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+                    if (mat.isGlossy) {
+                        reflColor = new Color(0, 0, 0);
+
+                        const numSamples = 10;
+                        const fractionCoeff = 1 / numSamples;
+
+                        for (var i = 0; i < numSamples; i++) {
+                            const randReflDir = Vec3.randomize(closestIntersect.reflDir, 0.1);
+
+                            const reflRay = new Ray(closestIntersect.intersectionPoint, randReflDir);
+
+                            const sampleReflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+
+                            if (sampleReflColor) {
+                                reflColor.r += fractionCoeff * sampleReflColor.r;
+                                reflColor.g += fractionCoeff * sampleReflColor.g;
+                                reflColor.b += fractionCoeff * sampleReflColor.b;
+                            }
+                        }
+                    } else {
+                        const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
+
+                        reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+                    }
 
                     if (reflColor) {
                         color.r += reflColor.r * mat.kReflective.r;
@@ -935,6 +958,17 @@ const materials = {
         specularThreshold: 0.8,
     },
 
+    glossyReflectiveMat: {
+        kAmbient: new Color(0.1, 0.1, 0.1),
+        kDiffuse: new Color(0.1, 0.1, 0.1),
+        kSpecular: new Color(1, 1, 1),
+        isReflective: true,
+        kReflective: new Color(0.7, 0.7, 0.7),
+        nSpecular: 50,
+        specularThreshold: 0.8,
+        isGlossy: true,
+    },
+
     refractiveMat: {
         kAmbient: new Color(0.1, 0.1, 0.1),
         kDiffuse: new Color(0.1, 0.1, 0.1),
@@ -1046,7 +1080,7 @@ const scene1 = {
         ),
 	    // sphere
         new MeshObject(
-            materials.refractiveMat,
+            materials.glossyReflectiveMat,
             'prism',
             new Vec3(0, -0.5, 2)
         ),
@@ -1518,6 +1552,24 @@ module.exports = class Vec3 {
             v1.z * v2.x - v1.x * v2.z,
             v1.x * v2.y - v1.y * v2.x
         );
+    }
+
+    static randomize(v, r) {
+        const rand1 = Math.random();
+        const rand2 = Math.random();
+
+        const x = Math.sqrt(- 2 * Math.log(rand1)) * Math.cos(2 * Math.PI * rand2) * r;
+        const y = Math.sqrt(- 2 * Math.log(rand1)) * Math.sin(2 * Math.PI * rand2) * r;
+
+        const u = new Vec3(v.x, v.y, v.z);
+
+        // Create a vector not parallel to v
+        u.x += 1;
+
+        const e1 = Vec3.normalize(Vec3.cross(u, v));
+        const e2 = Vec3.normalize(Vec3.cross(v, e1));
+
+        return Vec3.normalize(Vec3.add(v, Vec3.scalarProd(x, e1), Vec3.scalarProd(y, e2)));
     }
 }
 

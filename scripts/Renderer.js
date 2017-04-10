@@ -130,9 +130,32 @@ module.exports = class Renderer {
 
             if (depth < 6) {
                 if (mat.isReflective) {
-                    const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
+                    var reflColor;
 
-                    const reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+                    if (mat.isGlossy) {
+                        reflColor = new Color(0, 0, 0);
+
+                        const numSamples = 10;
+                        const fractionCoeff = 1 / numSamples;
+
+                        for (var i = 0; i < numSamples; i++) {
+                            const randReflDir = Vec3.randomize(closestIntersect.reflDir, 0.1);
+
+                            const reflRay = new Ray(closestIntersect.intersectionPoint, randReflDir);
+
+                            const sampleReflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+
+                            if (sampleReflColor) {
+                                reflColor.r += fractionCoeff * sampleReflColor.r;
+                                reflColor.g += fractionCoeff * sampleReflColor.g;
+                                reflColor.b += fractionCoeff * sampleReflColor.b;
+                            }
+                        }
+                    } else {
+                        const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
+
+                        reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+                    }
 
                     if (reflColor) {
                         color.r += reflColor.r * mat.kReflective.r;
