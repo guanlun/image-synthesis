@@ -5,8 +5,11 @@ const Triangle = require('./Triangle');
 const EPSILON = 0.0001;
 
 module.exports = class MeshObject {
-    constructor(mat, objName, offset) {
+    constructor(mat, objName, offset, velocity) {
         this.mat = mat;
+
+        this.velocity = velocity;
+
         $.get(`/objects/${objName}.obj`, objData => {
             const lines = objData.split('\n');
 
@@ -59,7 +62,7 @@ module.exports = class MeshObject {
         });
     }
 
-    intersect(ray, debug) {
+    intersect(ray, timeOffset, debug) {
         var minT = Number.MAX_VALUE;
         var intersect;
 
@@ -74,7 +77,12 @@ module.exports = class MeshObject {
             }
 
             const invDet = 1 / det;
-            var t = Vec3.subtract(ray.startingPos, vertices[0].pos);
+            var firstVertexPos = vertices[0].pos;
+
+            if (this.velocity) {
+                firstVertexPos = Vec3.add(firstVertexPos, Vec3.scalarProd(timeOffset, this.velocity));
+            }
+            var t = Vec3.subtract(ray.startingPos, firstVertexPos);
 
             const u = Vec3.dot(t, p) * invDet;
 

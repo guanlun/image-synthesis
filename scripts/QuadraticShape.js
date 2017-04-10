@@ -1,7 +1,7 @@
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
-	constructor(name, mat, pCenter, p0, p1, v1, s0, s1, s2, a02, a12, a22, a21, a00) {
+	constructor(name, mat, pCenter, p0, p1, v1, s0, s1, s2, a02, a12, a22, a21, a00, velocity) {
         this.name = name;
 		this.mat = mat;
 		this.pCenter = pCenter;
@@ -21,9 +21,11 @@ module.exports = class QuadraticShape {
 		this.a22 = a22;
 		this.a21 = a21;
 		this.a00 = a00;
+
+        this.velocity = velocity;
 	}
 
-	intersect(ray, debug) {
+	intersect(ray, timeOffset, debug) {
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;

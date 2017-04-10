@@ -6,6 +6,7 @@ const MeshObject = require('./MeshObject');
 const Camera = require('./Camera');
 const PointSpotLight = require('./PointSpotLight');
 const DirectionalLight = require('./DirectionalLight');
+const SphericalLight = require('./SphericalLight');
 
 function complexSquare(c) {
     return {
@@ -346,19 +347,8 @@ const scene2 = {
         new MeshObject(
             materials.shinyBlueMat,
             'cube',
-            new Vec3(-0.5, -0.5, 5)
+            new Vec3(-0.5, -0.5, 2)
         ),
-        // Sphere
-	    new QuadraticShape(
-            "sphere",
-	        materials.refractiveMat,
-	        new Vec3(-1, 0, 2),
-	        new Vec3(0, 0, 1),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1.2, 1.2, 1.2,
-	        1, 1, 1, 0, -1
-	    ),
 	    // bottom plane
 	    new QuadraticShape(
             "bottom plane",
@@ -417,8 +407,9 @@ const scene2 = {
 	],
 
 	lights: [
-	    new PointSpotLight(
+	    new SphericalLight(
 	        new Vec3(1, 2.5, -2),
+            0.3,
 	        new Vec3(-1, -2, 2),
 			0,
 			1,
@@ -525,6 +516,7 @@ const scene3 = {
 };
 
 const scene4 = {
+    hasMotion: true,
     shapes: [
         new MeshObject(
             materials.shinyBlueMat,
@@ -533,9 +525,10 @@ const scene4 = {
         ),
 	    // sphere
         new MeshObject(
-            materials.textureIORRefractiveMat,
+            materials.checkerboardMat,
             'tex-cube',
-            new Vec3(0, 0.5, -1)
+            new Vec3(0, 0.5, -1),
+            new Vec3(1, -0.3, 0)
         ),
 	    // bottom plane
 	    new QuadraticShape(

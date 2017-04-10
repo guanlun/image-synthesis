@@ -7,7 +7,7 @@ const EPSILON = 0.001;
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(0);
+        this.selectScene(3);
 
         this.canvas = canvasElement;
 
@@ -86,11 +86,24 @@ module.exports = class Renderer {
         var r = 0, g = 0, b = 0;
 
         for (let light of this.scene.lights) {
-            const color = light.shade(intersect, this.scene.shapes, debug);
+            if (light.isAreaLight) {
+                const numSamples = 20;
+                const fractionCoeff = 1 / numSamples;
 
-            r += color.r;
-            g += color.g;
-            b += color.b;
+                for (var i = 0; i < numSamples; i++) {
+                    const sampleShadedColor = light.shade(intersect, this.scene.shapes, debug);
+
+                    r += fractionCoeff * sampleShadedColor.r;
+                    g += fractionCoeff * sampleShadedColor.g;
+                    b += fractionCoeff * sampleShadedColor.b;
+                }
+            } else {
+                const color = light.shade(intersect, this.scene.shapes, debug);
+
+                r += color.r;
+                g += color.g;
+                b += color.b;
+            }
         }
 
         if (this.silhouetteRendering) {
@@ -106,13 +119,13 @@ module.exports = class Renderer {
         return new Color(r, g, b);
     }
 
-    _traceRay(ray, depth, envMap, debug) {
+    _traceRay(ray, depth, envMap, timeOffset, debug) {
         let color;
         let minT = Number.MAX_VALUE;
         let closestIntersect;
 
         for (let shape of this.scene.shapes) {
-            const intersect = shape.intersect(ray, debug);
+            const intersect = shape.intersect(ray, timeOffset, debug);
             if (intersect && (intersect.t > EPSILON) && (intersect.t < minT)) {
                 minT = intersect.t;
                 closestIntersect = intersect;
@@ -143,7 +156,7 @@ module.exports = class Renderer {
 
                             const reflRay = new Ray(closestIntersect.intersectionPoint, randReflDir);
 
-                            const sampleReflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+                            const sampleReflColor = this._traceRay(reflRay, depth + 1, envMap, timeOffset, debug);
 
                             if (sampleReflColor) {
                                 reflColor.r += fractionCoeff * sampleReflColor.r;
@@ -154,7 +167,7 @@ module.exports = class Renderer {
                     } else {
                         const reflRay = new Ray(closestIntersect.intersectionPoint, closestIntersect.reflDir);
 
-                        reflColor = this._traceRay(reflRay, depth + 1, envMap, debug);
+                        reflColor = this._traceRay(reflRay, depth + 1, envMap, timeOffset, debug);
                     }
 
                     if (reflColor) {
@@ -202,7 +215,7 @@ module.exports = class Renderer {
                         );
 
                         const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
-                        refrColor = this._traceRay(refrRay, depth + 1, envMap, debug);
+                        refrColor = this._traceRay(refrRay, depth + 1, envMap, timeOffset, debug);
                     } else {
                         const pn = ior;
 
@@ -217,7 +230,7 @@ module.exports = class Renderer {
                             );
 
                             const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
-                            refrColor = this._traceRay(refrRay, depth + 1, envMap, debug);
+                            refrColor = this._traceRay(refrRay, depth + 1, envMap, timeOffset, debug);
                         }
                     }
 
@@ -269,7 +282,29 @@ module.exports = class Renderer {
 
         const ray = this.scene.camera.createRay(xPos, yPos);
 
-        const color = this._traceRay(ray, 0, this.scene.envMap, debug);
+        var color;
+
+        if (this.scene.hasMotion) {
+            color = new Color(0, 0, 0);
+
+            const numSamples = 30;
+            const fractionCoeff = 1 / numSamples;
+
+            for (var i = 0; i < numSamples; i++) {
+                const timeOffset = (i - numSamples / 2) / numSamples;
+
+                const sampleMotionColor = this._traceRay(ray, 0, this.scene.envMap, timeOffset, debug);
+
+                if (sampleMotionColor) {
+                    color.r += fractionCoeff * sampleMotionColor.r;
+                    color.g += fractionCoeff * sampleMotionColor.g;
+                    color.b += fractionCoeff * sampleMotionColor.b;
+                }
+            }
+        } else {
+            color = this._traceRay(ray, 0, this.scene.envMap, 0, debug);
+        }
+
         if (color) {
             color.clamp();
             return color;
