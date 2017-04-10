@@ -7,7 +7,7 @@ const EPSILON = 0.001;
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(3);
+        this.selectScene(2);
 
         this.canvas = canvasElement;
 
@@ -178,60 +178,24 @@ module.exports = class Renderer {
                 }
 
                 if (mat.isRefractive) {
-                    const NL = -Vec3.dot(closestIntersect.normal, ray.dir);
-
-                    var ior = mat.ior;
-
-                    if (mat.iorMap) {
-                        const width = mat.iorMap.width;
-            			const height = mat.iorMap.height;
-
-            			const x = Math.round(closestIntersect.texCoord.u * mat.iorMap.width);
-            			const y = Math.round(closestIntersect.texCoord.v * mat.iorMap.height);
-
-                        const idx = (y * width + x) * 4;
-
-            			const iorColor = new Color(
-            				(mat.iorMap.data[idx]) / 255,
-            				(mat.iorMap.data[idx + 1]) / 255,
-            				(mat.iorMap.data[idx + 2]) / 255
-            			);
-
-                        const iorGreyScale = iorColor.toGreyScale();
-
-                        ior = 1.1 + iorGreyScale * 0.2;
-                    }
-
                     var refrColor;
 
-                    if (NL > 0) {
-                        const pn = 1 / ior;
+                    if (mat.isGlossy) {
+                        refrColor = new Color(0, 0, 0);
+                        const numSamples = 20;
+                        const fractionCoeff = 1 / numSamples;
 
-                        const longTerm = pn * NL - Math.sqrt(1 - pn * pn * (1 - NL * NL));
+                        for (var i = 0; i < numSamples; i++) {
+                            const sampleRefrColor = this._traceRefractiveRay(closestIntersect, ray, true, mat, envMap, timeOffset, depth + 1, debug);
 
-                        const refrDir = Vec3.add(
-                            Vec3.scalarProd(longTerm, closestIntersect.normal),
-                            Vec3.scalarProd(pn, ray.dir)
-                        );
-
-                        const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
-                        refrColor = this._traceRay(refrRay, depth + 1, envMap, timeOffset, debug);
-                    } else {
-                        const pn = ior;
-
-                        const bSquare = 1 - pn * pn * (1 - NL * NL);
-
-                        if (bSquare > 0) {
-                            const longTerm = -(pn * (-NL) - Math.sqrt(bSquare));
-
-                            const refrDir = Vec3.add(
-                                Vec3.scalarProd(longTerm, closestIntersect.normal),
-                                Vec3.scalarProd(pn, ray.dir)
-                            );
-
-                            const refrRay = new Ray(closestIntersect.intersectionPoint, refrDir);
-                            refrColor = this._traceRay(refrRay, depth + 1, envMap, timeOffset, debug);
+                            if (sampleRefrColor) {
+                                refrColor.r += fractionCoeff * sampleRefrColor.r;
+                                refrColor.g += fractionCoeff * sampleRefrColor.g;
+                                refrColor.b += fractionCoeff * sampleRefrColor.b;
+                            }
                         }
+                    } else {
+                        refrColor = this._traceRefractiveRay(closestIntersect, ray, false, mat, envMap, timeOffset, depth + 1, debug);
                     }
 
                     if (refrColor) {
@@ -267,6 +231,74 @@ module.exports = class Renderer {
         }
 
         return color;
+    }
+
+    _traceRefractiveRay(intersect, ray, isGlossy, mat, envMap, timeOffset, depth, debug) {
+        const NL = -Vec3.dot(intersect.normal, ray.dir);
+
+        var ior = mat.ior;
+
+        if (mat.iorMap) {
+            const width = mat.iorMap.width;
+            const height = mat.iorMap.height;
+
+            const x = Math.round(intersect.texCoord.u * mat.iorMap.width);
+            const y = Math.round(intersect.texCoord.v * mat.iorMap.height);
+
+            const idx = (y * width + x) * 4;
+
+            const iorColor = new Color(
+                (mat.iorMap.data[idx]) / 255,
+                (mat.iorMap.data[idx + 1]) / 255,
+                (mat.iorMap.data[idx + 2]) / 255
+            );
+
+            const iorGreyScale = iorColor.toGreyScale();
+
+            ior = 1.1 + iorGreyScale * 0.2;
+        }
+
+        var refrColor;
+
+        if (NL > 0) {
+            const pn = 1 / ior;
+
+            const longTerm = pn * NL - Math.sqrt(1 - pn * pn * (1 - NL * NL));
+
+            var refrDir = Vec3.add(
+                Vec3.scalarProd(longTerm, intersect.normal),
+                Vec3.scalarProd(pn, ray.dir)
+            );
+
+            if (isGlossy) {
+                refrDir = Vec3.randomize(refrDir, 0.1);
+            }
+
+            const refrRay = new Ray(intersect.intersectionPoint, refrDir);
+            refrColor = this._traceRay(refrRay, depth + 1, envMap, timeOffset, debug);
+        } else {
+            const pn = ior;
+
+            const bSquare = 1 - pn * pn * (1 - NL * NL);
+
+            if (bSquare > 0) {
+                const longTerm = -(pn * (-NL) - Math.sqrt(bSquare));
+
+                var refrDir = Vec3.add(
+                    Vec3.scalarProd(longTerm, intersect.normal),
+                    Vec3.scalarProd(pn, ray.dir)
+                );
+
+                if (isGlossy) {
+                    refrDir = Vec3.randomize(refrDir, 0.1);
+                }
+
+                const refrRay = new Ray(intersect.intersectionPoint, refrDir);
+                refrColor = this._traceRay(refrRay, depth + 1, envMap, timeOffset, debug);
+            }
+        }
+
+        return refrColor;
     }
 
     _computeColorAtPos(x, y, debug) {
