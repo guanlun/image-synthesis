@@ -1,3 +1,5 @@
+const FileSaver = require('file-saver');
+
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const Scene = require('./Scene');
@@ -7,7 +9,7 @@ const EPSILON = 0.001;
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(0);
+        this.selectScene(1);
 
         this.outputDiv = document.getElementById('output');
 
@@ -27,6 +29,8 @@ module.exports = class Renderer {
 
         this.antialiasing = false;
         this.silhouetteRendering = false;
+
+        this.frameNum = 0;
     }
 
     selectScene(idx) {
@@ -34,18 +38,22 @@ module.exports = class Renderer {
     }
 
     writeImage() {
-        const imageData = this.canvas.toDataURL('image/png');
-        // console.log(image);
+        this.canvas.toBlob(blob => {
+            var fileName = this.frameNum + ".jpg";
+            if (this.frameNum < 10) {
+                fileName = "0" + fileName;
+            }
+            FileSaver.saveAs(blob, fileName);
 
-        this.outputDiv.innerHTML += '<img src="' + imageData + '"/>';
+            this.frameNum++;
+        });
     }
 
     nextFrame() {
-        this.timeOffset++;
+        // this.timeOffset += 0.05;
 
-        this.writeImage();
-
-        this.render();
+        // this.writeImage();
+        // this.render();
     }
 
     render() {
@@ -67,16 +75,20 @@ module.exports = class Renderer {
         }
 
         for (let x = 0; x < this.canvas.width; x++) {
-            const xRand = Math.random() * 0.25;
-            const yRand = Math.random() * 0.25;
+            const jitterSamplePerSide = 3;
+            const jitterCoeff = 1 / jitterSamplePerSide;
+            const numSamples = jitterSamplePerSide * jitterSamplePerSide;
+
+            const xRand = Math.random() * jitterCoeff;
+            const yRand = Math.random() * jitterCoeff;
 
             let resultColor;
 
             if (this.antialiasing) {
                 var r = 0, g = 0, b = 0;
 
-                for (var yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
-                    for (var xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
+                for (var yOffset = 0; yOffset < 0.99; yOffset += jitterCoeff) {
+                    for (var xOffset = 0; xOffset < 0.99; xOffset += jitterCoeff) {
                         const xJitterPos = x + xOffset + xRand;
                         const yJitterPos = y + yOffset + yRand;
 
@@ -90,7 +102,7 @@ module.exports = class Renderer {
                     }
                 }
 
-                resultColor = new Color(r / 16, g / 16, b / 16);
+                resultColor = new Color(r / numSamples, g / numSamples, b / numSamples);
             } else {
                 resultColor = this._computeColorAtPos(x, y);
             }
@@ -162,6 +174,31 @@ module.exports = class Renderer {
 
             const obj = closestIntersect.obj;
             const mat = obj.mat;
+
+            if (depth < 3) {
+                const numSamples = 10;
+                const fractionCoeff = 1 / numSamples;
+
+                const scatterColor = new Color(0, 0, 0);
+
+                for (var i = 0; i < numSamples; i++) {
+                    const randScatterDir = Vec3.randomHemisphereDir(closestIntersect.normal);
+                    const scatterRay = new Ray(closestIntersect.intersectionPoint, randScatterDir);
+
+                    const sampleScatterColor = this._traceRay(scatterRay, depth + 1, envMap, debug);
+
+                    if (sampleScatterColor) {
+                        const indirectCoeff = 1;
+                        scatterColor.r += indirectCoeff * fractionCoeff * sampleScatterColor.r;
+                        scatterColor.g += indirectCoeff * fractionCoeff * sampleScatterColor.g;
+                        scatterColor.b += indirectCoeff * fractionCoeff * sampleScatterColor.b;
+                    }
+                }
+
+                color.r += scatterColor.r * mat.kDiffuse.r;
+                color.g += scatterColor.g * mat.kDiffuse.g;
+                color.b += scatterColor.b * mat.kDiffuse.b;
+            }
 
             if (depth < 6) {
                 if (mat.isReflective) {

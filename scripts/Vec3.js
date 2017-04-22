@@ -72,4 +72,16 @@ module.exports = class Vec3 {
 
         return Vec3.normalize(Vec3.add(v, Vec3.scalarProd(x, e1), Vec3.scalarProd(y, e2)));
     }
+
+    static randomHemisphereDir(normal) {
+        const b = Vec3.normalize(new Vec3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5));
+
+        if (Vec3.dot(b, normal) < 0) {
+            b.x = -b.x;
+            b.y = -b.y;
+            b.z = -b.z;
+        }
+
+        return b;
+    }
 }

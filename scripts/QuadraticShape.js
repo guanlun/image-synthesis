@@ -26,11 +26,17 @@ module.exports = class QuadraticShape {
 	}
 
 	intersect(ray, timeOffset, debug) {
+        var center = this.pCenter;
+
+        if (timeOffset) {
+            center = Vec3.add(center, Vec3.scalarProd(timeOffset, this.velocity));
+        }
+
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;
 
-		const camToCenter = Vec3.subtract(ray.startingPos, this.pCenter);
+		const camToCenter = Vec3.subtract(ray.startingPos, center);
 
 		const ec0 = Vec3.dot(this.n0, camToCenter) / this.s0;
 		const ec1 = Vec3.dot(this.n1, camToCenter) / this.s1;
@@ -73,7 +79,7 @@ module.exports = class QuadraticShape {
 
 		const intersectionPoint = ray.at(t);
 
-		const relPos = Vec3.subtract(intersectionPoint, this.pCenter);
+		const relPos = Vec3.subtract(intersectionPoint, center);
 
 		const normal = Vec3.normalize(Vec3.add(
 			Vec3.scalarProd(2 * this.a02 * (Vec3.dot(this.n0, relPos) / Math.pow(this.s0, 2)), this.n0),

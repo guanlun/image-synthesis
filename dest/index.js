@@ -1,4 +1,194 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/* FileSaver.js
+ * A saveAs() FileSaver implementation.
+ * 1.3.2
+ * 2016-06-16 18:25:19
+ *
+ * By Eli Grey, http://eligrey.com
+ * License: MIT
+ *   See https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md
+ */
+
+/*global self */
+/*jslint bitwise: true, indent: 4, laxbreak: true, laxcomma: true, smarttabs: true, plusplus: true */
+
+/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
+
+var saveAs = saveAs || (function(view) {
+	"use strict";
+	// IE <10 is explicitly unsupported
+	if (typeof view === "undefined" || typeof navigator !== "undefined" && /MSIE [1-9]\./.test(navigator.userAgent)) {
+		return;
+	}
+	var
+		  doc = view.document
+		  // only get URL when necessary in case Blob.js hasn't overridden it yet
+		, get_URL = function() {
+			return view.URL || view.webkitURL || view;
+		}
+		, save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a")
+		, can_use_save_link = "download" in save_link
+		, click = function(node) {
+			var event = new MouseEvent("click");
+			node.dispatchEvent(event);
+		}
+		, is_safari = /constructor/i.test(view.HTMLElement) || view.safari
+		, is_chrome_ios =/CriOS\/[\d]+/.test(navigator.userAgent)
+		, throw_outside = function(ex) {
+			(view.setImmediate || view.setTimeout)(function() {
+				throw ex;
+			}, 0);
+		}
+		, force_saveable_type = "application/octet-stream"
+		// the Blob API is fundamentally broken as there is no "downloadfinished" event to subscribe to
+		, arbitrary_revoke_timeout = 1000 * 40 // in ms
+		, revoke = function(file) {
+			var revoker = function() {
+				if (typeof file === "string") { // file is an object URL
+					get_URL().revokeObjectURL(file);
+				} else { // file is a File
+					file.remove();
+				}
+			};
+			setTimeout(revoker, arbitrary_revoke_timeout);
+		}
+		, dispatch = function(filesaver, event_types, event) {
+			event_types = [].concat(event_types);
+			var i = event_types.length;
+			while (i--) {
+				var listener = filesaver["on" + event_types[i]];
+				if (typeof listener === "function") {
+					try {
+						listener.call(filesaver, event || filesaver);
+					} catch (ex) {
+						throw_outside(ex);
+					}
+				}
+			}
+		}
+		, auto_bom = function(blob) {
+			// prepend BOM for UTF-8 XML and text/* types (including HTML)
+			// note: your browser will automatically convert UTF-16 U+FEFF to EF BB BF
+			if (/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(blob.type)) {
+				return new Blob([String.fromCharCode(0xFEFF), blob], {type: blob.type});
+			}
+			return blob;
+		}
+		, FileSaver = function(blob, name, no_auto_bom) {
+			if (!no_auto_bom) {
+				blob = auto_bom(blob);
+			}
+			// First try a.download, then web filesystem, then object URLs
+			var
+				  filesaver = this
+				, type = blob.type
+				, force = type === force_saveable_type
+				, object_url
+				, dispatch_all = function() {
+					dispatch(filesaver, "writestart progress write writeend".split(" "));
+				}
+				// on any filesys errors revert to saving with object URLs
+				, fs_error = function() {
+					if ((is_chrome_ios || (force && is_safari)) && view.FileReader) {
+						// Safari doesn't allow downloading of blob urls
+						var reader = new FileReader();
+						reader.onloadend = function() {
+							var url = is_chrome_ios ? reader.result : reader.result.replace(/^data:[^;]*;/, 'data:attachment/file;');
+							var popup = view.open(url, '_blank');
+							if(!popup) view.location.href = url;
+							url=undefined; // release reference before dispatching
+							filesaver.readyState = filesaver.DONE;
+							dispatch_all();
+						};
+						reader.readAsDataURL(blob);
+						filesaver.readyState = filesaver.INIT;
+						return;
+					}
+					// don't create more object URLs than needed
+					if (!object_url) {
+						object_url = get_URL().createObjectURL(blob);
+					}
+					if (force) {
+						view.location.href = object_url;
+					} else {
+						var opened = view.open(object_url, "_blank");
+						if (!opened) {
+							// Apple does not allow window.open, see https://developer.apple.com/library/safari/documentation/Tools/Conceptual/SafariExtensionGuide/WorkingwithWindowsandTabs/WorkingwithWindowsandTabs.html
+							view.location.href = object_url;
+						}
+					}
+					filesaver.readyState = filesaver.DONE;
+					dispatch_all();
+					revoke(object_url);
+				}
+			;
+			filesaver.readyState = filesaver.INIT;
+
+			if (can_use_save_link) {
+				object_url = get_URL().createObjectURL(blob);
+				setTimeout(function() {
+					save_link.href = object_url;
+					save_link.download = name;
+					click(save_link);
+					dispatch_all();
+					revoke(object_url);
+					filesaver.readyState = filesaver.DONE;
+				});
+				return;
+			}
+
+			fs_error();
+		}
+		, FS_proto = FileSaver.prototype
+		, saveAs = function(blob, name, no_auto_bom) {
+			return new FileSaver(blob, name || blob.name || "download", no_auto_bom);
+		}
+	;
+	// IE 10+ (native saveAs)
+	if (typeof navigator !== "undefined" && navigator.msSaveOrOpenBlob) {
+		return function(blob, name, no_auto_bom) {
+			name = name || blob.name || "download";
+
+			if (!no_auto_bom) {
+				blob = auto_bom(blob);
+			}
+			return navigator.msSaveOrOpenBlob(blob, name);
+		};
+	}
+
+	FS_proto.abort = function(){};
+	FS_proto.readyState = FS_proto.INIT = 0;
+	FS_proto.WRITING = 1;
+	FS_proto.DONE = 2;
+
+	FS_proto.error =
+	FS_proto.onwritestart =
+	FS_proto.onprogress =
+	FS_proto.onwrite =
+	FS_proto.onabort =
+	FS_proto.onerror =
+	FS_proto.onwriteend =
+		null;
+
+	return saveAs;
+}(
+	   typeof self !== "undefined" && self
+	|| typeof window !== "undefined" && window
+	|| this.content
+));
+// `self` is undefined in Firefox for Android content script context
+// while `this` is nsIContentFrameMessageManager
+// with an attribute `content` that corresponds to the window
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports.saveAs = saveAs;
+} else if ((typeof define !== "undefined" && define !== null) && (define.amd !== null)) {
+  define("FileSaver.js", function() {
+    return saveAs;
+  });
+}
+
+},{}],2:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Ray = require('./Ray');
 
@@ -24,7 +214,7 @@ module.exports = class Camera {
     }
 }
 
-},{"./Ray":8,"./Vec3":14}],2:[function(require,module,exports){
+},{"./Ray":9,"./Vec3":15}],3:[function(require,module,exports){
 function clamp(n) {
     if (n > 1) return 1;
     if (n < 0) return 0;
@@ -65,7 +255,7 @@ module.exports = class Color {
     }
 }
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
@@ -107,7 +297,7 @@ module.exports = class DirectionalLight extends Light {
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":14}],4:[function(require,module,exports){
+},{"./Color":3,"./Light":5,"./Ray":9,"./Vec3":15}],5:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 
@@ -162,18 +352,20 @@ module.exports = class Light {
 		const specularCos = Math.max(0, -Vec3.dot(intersect.reflDir, lightDir));
         const specularCoeff = Math.pow(specularCos, mat.nSpecular);
 
+        const directCoeff = 0.7;
+
         resultColor.r += this.intensity * this.color.r *
-            (ambientColor.r + coeff * (diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
+            (ambientColor.r + coeff * (directCoeff * diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
         resultColor.g += this.intensity * this.color.g *
-            (ambientColor.g + coeff * (diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
+            (ambientColor.g + coeff * (directCoeff * diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
         resultColor.b += this.intensity * this.color.b *
-            (ambientColor.b + coeff * (diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
+            (ambientColor.b + coeff * (directCoeff * diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
 
 		return resultColor;
 	}
 }
 
-},{"./Color":2,"./Vec3":14}],5:[function(require,module,exports){
+},{"./Color":3,"./Vec3":15}],6:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const Triangle = require('./Triangle');
@@ -354,7 +546,7 @@ module.exports = class MeshObject {
     }
 }
 
-},{"./Color":2,"./Triangle":13,"./Vec3":14}],6:[function(require,module,exports){
+},{"./Color":3,"./Triangle":14,"./Vec3":15}],7:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
@@ -403,7 +595,7 @@ module.exports = class PointSpotLight extends Light {
 	}
 }
 
-},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":14}],7:[function(require,module,exports){
+},{"./Color":3,"./Light":5,"./Ray":9,"./Vec3":15}],8:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class QuadraticShape {
@@ -432,11 +624,17 @@ module.exports = class QuadraticShape {
 	}
 
 	intersect(ray, timeOffset, debug) {
+        var center = this.pCenter;
+
+        if (timeOffset) {
+            center = Vec3.add(center, Vec3.scalarProd(timeOffset, this.velocity));
+        }
+
 		const pe0 = Vec3.dot(this.n0, ray.dir) / this.s0;
 		const pe1 = Vec3.dot(this.n1, ray.dir) / this.s1;
 		const pe2 = Vec3.dot(this.n2, ray.dir) / this.s2;
 
-		const camToCenter = Vec3.subtract(ray.startingPos, this.pCenter);
+		const camToCenter = Vec3.subtract(ray.startingPos, center);
 
 		const ec0 = Vec3.dot(this.n0, camToCenter) / this.s0;
 		const ec1 = Vec3.dot(this.n1, camToCenter) / this.s1;
@@ -479,7 +677,7 @@ module.exports = class QuadraticShape {
 
 		const intersectionPoint = ray.at(t);
 
-		const relPos = Vec3.subtract(intersectionPoint, this.pCenter);
+		const relPos = Vec3.subtract(intersectionPoint, center);
 
 		const normal = Vec3.normalize(Vec3.add(
 			Vec3.scalarProd(2 * this.a02 * (Vec3.dot(this.n0, relPos) / Math.pow(this.s0, 2)), this.n0),
@@ -530,7 +728,7 @@ module.exports = class QuadraticShape {
 	}
 }
 
-},{"./Vec3":14}],8:[function(require,module,exports){
+},{"./Vec3":15}],9:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Ray {
@@ -544,7 +742,9 @@ module.exports = class Ray {
     }
 }
 
-},{"./Vec3":14}],9:[function(require,module,exports){
+},{"./Vec3":15}],10:[function(require,module,exports){
+const FileSaver = require('file-saver');
+
 const Vec3 = require('./Vec3');
 const Color = require('./Color');
 const Scene = require('./Scene');
@@ -554,7 +754,7 @@ const EPSILON = 0.001;
 
 module.exports = class Renderer {
     constructor(canvasElement) {
-        this.selectScene(0);
+        this.selectScene(1);
 
         this.outputDiv = document.getElementById('output');
 
@@ -574,6 +774,8 @@ module.exports = class Renderer {
 
         this.antialiasing = false;
         this.silhouetteRendering = false;
+
+        this.frameNum = 0;
     }
 
     selectScene(idx) {
@@ -581,18 +783,22 @@ module.exports = class Renderer {
     }
 
     writeImage() {
-        const imageData = this.canvas.toDataURL('image/png');
-        // console.log(image);
+        this.canvas.toBlob(blob => {
+            var fileName = this.frameNum + ".jpg";
+            if (this.frameNum < 10) {
+                fileName = "0" + fileName;
+            }
+            FileSaver.saveAs(blob, fileName);
 
-        this.outputDiv.innerHTML += '<img src="' + imageData + '"/>';
+            this.frameNum++;
+        });
     }
 
     nextFrame() {
-        this.timeOffset++;
+        // this.timeOffset += 0.05;
 
-        this.writeImage();
-
-        this.render();
+        // this.writeImage();
+        // this.render();
     }
 
     render() {
@@ -614,16 +820,20 @@ module.exports = class Renderer {
         }
 
         for (let x = 0; x < this.canvas.width; x++) {
-            const xRand = Math.random() * 0.25;
-            const yRand = Math.random() * 0.25;
+            const jitterSamplePerSide = 3;
+            const jitterCoeff = 1 / jitterSamplePerSide;
+            const numSamples = jitterSamplePerSide * jitterSamplePerSide;
+
+            const xRand = Math.random() * jitterCoeff;
+            const yRand = Math.random() * jitterCoeff;
 
             let resultColor;
 
             if (this.antialiasing) {
                 var r = 0, g = 0, b = 0;
 
-                for (var yOffset = 0; yOffset < 0.99; yOffset += 0.25) {
-                    for (var xOffset = 0; xOffset < 0.99; xOffset += 0.25) {
+                for (var yOffset = 0; yOffset < 0.99; yOffset += jitterCoeff) {
+                    for (var xOffset = 0; xOffset < 0.99; xOffset += jitterCoeff) {
                         const xJitterPos = x + xOffset + xRand;
                         const yJitterPos = y + yOffset + yRand;
 
@@ -637,7 +847,7 @@ module.exports = class Renderer {
                     }
                 }
 
-                resultColor = new Color(r / 16, g / 16, b / 16);
+                resultColor = new Color(r / numSamples, g / numSamples, b / numSamples);
             } else {
                 resultColor = this._computeColorAtPos(x, y);
             }
@@ -709,6 +919,31 @@ module.exports = class Renderer {
 
             const obj = closestIntersect.obj;
             const mat = obj.mat;
+
+            if (depth < 3) {
+                const numSamples = 10;
+                const fractionCoeff = 1 / numSamples;
+
+                const scatterColor = new Color(0, 0, 0);
+
+                for (var i = 0; i < numSamples; i++) {
+                    const randScatterDir = Vec3.randomHemisphereDir(closestIntersect.normal);
+                    const scatterRay = new Ray(closestIntersect.intersectionPoint, randScatterDir);
+
+                    const sampleScatterColor = this._traceRay(scatterRay, depth + 1, envMap, debug);
+
+                    if (sampleScatterColor) {
+                        const indirectCoeff = 1;
+                        scatterColor.r += indirectCoeff * fractionCoeff * sampleScatterColor.r;
+                        scatterColor.g += indirectCoeff * fractionCoeff * sampleScatterColor.g;
+                        scatterColor.b += indirectCoeff * fractionCoeff * sampleScatterColor.b;
+                    }
+                }
+
+                color.r += scatterColor.r * mat.kDiffuse.r;
+                color.g += scatterColor.g * mat.kDiffuse.g;
+                color.b += scatterColor.b * mat.kDiffuse.b;
+            }
 
             if (depth < 6) {
                 if (mat.isReflective) {
@@ -894,7 +1129,7 @@ module.exports = class Renderer {
     }
 }
 
-},{"./Color":2,"./Ray":8,"./Scene":10,"./Vec3":14}],10:[function(require,module,exports){
+},{"./Color":3,"./Ray":9,"./Scene":11,"./Vec3":15,"file-saver":1}],11:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Shape = require('./Shape');
 const Color = require('./Color');
@@ -988,7 +1223,7 @@ const materials = {
 
     dullRedMat: {
     	kAmbient: new Color(0.2, 0.1, 0.1),
-    	kDiffuse: new Color(1, 0.5, 0.5),
+    	kDiffuse: new Color(1, 0.3, 0.3),
     	kSpecular: new Color(0.2, 0.1, 0.1),
     	nSpecular: 100,
     	specularThreshold: 0.8,
@@ -996,7 +1231,7 @@ const materials = {
 
     dullGreenMat: {
     	kAmbient: new Color(0.1, 0.2, 0.1),
-    	kDiffuse: new Color(0.5, 1, 0.5),
+    	kDiffuse: new Color(0.3, 1, 0.3),
     	kSpecular: new Color(0.1, 0.2, 0.1),
     	nSpecular: 100,
     	specularThreshold: 0.8,
@@ -1004,8 +1239,16 @@ const materials = {
 
     dullGreyMat: {
     	kAmbient: new Color(0.1, 0.1, 0.1),
-    	kDiffuse: new Color(0.6, 0.6, 0.6),
-    	kSpecular: new Color(0.1, 0.1, 0.1),
+    	kDiffuse: new Color(0.7, 0.7, 0.7),
+    	kSpecular: new Color(0, 0, 0),
+    	nSpecular: 100,
+    	specularThreshold: 0.8,
+    },
+
+    dullWhiteMat: {
+        kAmbient: new Color(0.3, 0.3, 0.3),
+    	kDiffuse: new Color(1, 1, 1),
+    	kSpecular: new Color(0, 0, 0),
     	nSpecular: 100,
     	specularThreshold: 0.8,
     },
@@ -1052,8 +1295,10 @@ const materials = {
     refractiveMat: {
         kAmbient: new Color(0.1, 0.1, 0.1),
         kDiffuse: new Color(0.1, 0.1, 0.1),
-        kSpecular: new Color(1, 1, 1),
+        kSpecular: new Color(0.6, 0.6, 0.6),
+        ifReflective: true,
         isRefractive: true,
+        kReflective: new Color(0.2, 0.2, 0.2),
         kRefractive: new Color(0.7, 0.7, 0.7),
         nSpecular: 50,
         specularThreshold: 0.8,
@@ -1158,26 +1403,90 @@ for (var matName in materials) {
     }
 }
 
-const envMapSrc = "env.jpg";
+const envMapSrc = "desert.jpg";
 let envMap;
 
 loadTextureImage(envMapSrc, textureData => {
     console.log(`Env map loaded: ${envMapSrc}`);
-    // scene3.envMap = textureData;
+    scene2.envMap = textureData;
 });
 
 const scene1 = {
     shapes: [
         new MeshObject(
-            materials.dullRedMat,
-            'tex-cube',
-            new Vec3(1.5, -0.5, -0.5),
-            new Vec3(1, 1, 1)
+            materials.shinyBlueMat,
+            'cube',
+            new Vec3(-0.5, -0.5, 2)
         ),
+        new QuadraticShape(
+            "sphere",
+	        materials.reflectiveMat,
+	        new Vec3(1, 1, 4),
+	        new Vec3(0, 0, 1),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1.2, 1.2, 1.2,
+	        1, 1, 1, 0, -1
+	    ),
+	    // bottom plane
+	    new QuadraticShape(
+            "bottom plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, -2, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // left plane
+	    new QuadraticShape(
+            "left plane",
+	        materials.dullRedMat,
+	        new Vec3(-3, 0, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(1, 0, 0),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // right plane
+	    new QuadraticShape(
+            "right plane",
+	        materials.dullGreenMat,
+	        new Vec3(3, 0, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(-1, 0, 0),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // back plane
+	    new QuadraticShape(
+            "back plane",
+	        materials.dullGreyMat,
+	        new Vec3(0, 0, 5),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, 0, -1),
+	        new Vec3(0, 1, 0),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
+	    // top plane
+	    new QuadraticShape(
+            "top plane",
+	        materials.shinyGreyMat,
+	        new Vec3(0, 3, 0),
+	        new Vec3(0, 0, 0),
+	        new Vec3(0, -1, 0),
+	        new Vec3(0, 0, 1),
+	        1, 1, 1,
+	        0, 0, 0, 1, 0
+	    ),
 	],
 
 	lights: [
-	    new PointSpotLight(
+        new PointSpotLight(
 	        new Vec3(1, 2.5, -2),
 	        new Vec3(-1, -2, 2),
 			0,
@@ -1197,78 +1506,27 @@ const scene1 = {
 
 const scene2 = {
     shapes: [
-        new MeshObject(
-            materials.shinyBlueMat,
-            'cube',
-            new Vec3(-0.5, -0.5, 2)
-        ),
-	    // bottom plane
-	    new QuadraticShape(
-            "bottom plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, -2, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // left plane
-	    new QuadraticShape(
-            "left plane",
-	        materials.dullRedMat,
-	        new Vec3(-3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // right plane
-	    new QuadraticShape(
-            "right plane",
-	        materials.dullGreenMat,
-	        new Vec3(3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(-1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // back plane
-	    new QuadraticShape(
-            "back plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, 0, 5),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 0, -1),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // top plane
-	    new QuadraticShape(
-            "top plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, 3, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, -1, 0),
+        new QuadraticShape(
+            "sphere",
+	        materials.dullWhiteMat,
+	        new Vec3(1, 1, 4),
 	        new Vec3(0, 0, 1),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
+	        new Vec3(0, 1, 0),
+	        new Vec3(1, 0, 0),
+	        1.2, 1.2, 1.2,
+	        1, 1, 1, 0, -1
 	    ),
 	],
 
 	lights: [
-	    new SphericalLight(
-	        new Vec3(1, 2.5, -2),
-            0.6,
-	        new Vec3(-1, -2, 2),
-			0,
-			1,
-	        new Color(1, 1, 1),
-	        1
-	    ),
+        new PointSpotLight(
+            new Vec3(1, 2.5, -2),
+            new Vec3(-1, -2, 2),
+            0,
+            1,
+            new Color(1, 1, 1),
+            0.3
+        ),
 	],
 
 	camera: new Camera(
@@ -1280,95 +1538,6 @@ const scene2 = {
 };
 
 const scene3 = {
-    shapes: [
-        new MeshObject(
-            materials.shinyBlueMat,
-            'cube',
-            new Vec3(-0.5, -0.5, 5)
-        ),
-	    // prism
-        new MeshObject(
-            materials.glossyRefractiveMat,
-            'prism',
-            new Vec3(0, 0, 2)
-        ),
-	    // bottom plane
-	    new QuadraticShape(
-            "bottom plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, -2, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // left plane
-	    new QuadraticShape(
-            "left plane",
-	        materials.dullRedMat,
-	        new Vec3(-3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // right plane
-	    new QuadraticShape(
-            "right plane",
-	        materials.dullGreenMat,
-	        new Vec3(3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(-1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // back plane
-	    new QuadraticShape(
-            "back plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, 0, 5),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 0, -1),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // top plane
-	    new QuadraticShape(
-            "top plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, 3, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, -1, 0),
-	        new Vec3(0, 0, 1),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	],
-
-	lights: [
-	    new PointSpotLight(
-	        new Vec3(1, 2.5, -2),
-	        new Vec3(-1, -2, 2),
-			0,
-			1,
-	        new Color(1, 1, 1),
-	        1
-	    ),
-	],
-
-	camera: new Camera(
-	    new Vec3(0, 0, -1),
-	    new Vec3(0, 0, 1),
-	    new Vec3(0, 1, 0),
-	    1
-	),
-};
-
-const scene4 = {
     hasMotion: true,
     shapes: [
         new MeshObject(
@@ -1459,9 +1628,9 @@ const scene4 = {
 	),
 };
 
-module.exports = [scene1, scene2, scene3, scene4];
+module.exports = [scene1, scene2, scene3];
 
-},{"./Camera":1,"./Color":2,"./DirectionalLight":3,"./MeshObject":5,"./PointSpotLight":6,"./QuadraticShape":7,"./Shape":11,"./SphericalLight":12,"./Vec3":14}],11:[function(require,module,exports){
+},{"./Camera":2,"./Color":3,"./DirectionalLight":4,"./MeshObject":6,"./PointSpotLight":7,"./QuadraticShape":8,"./Shape":12,"./SphericalLight":13,"./Vec3":15}],12:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Shape {
@@ -1470,7 +1639,7 @@ module.exports = class Shape {
     }
 }
 
-},{"./Vec3":14}],12:[function(require,module,exports){
+},{"./Vec3":15}],13:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 const Light = require('./Light');
 const Color = require('./Color');
@@ -1532,7 +1701,7 @@ module.exports = class SphericalLight extends Light {
     }
 }
 
-},{"./Color":2,"./Light":4,"./Ray":8,"./Vec3":14}],13:[function(require,module,exports){
+},{"./Color":3,"./Light":5,"./Ray":9,"./Vec3":15}],14:[function(require,module,exports){
 const Vec3 = require('./Vec3');
 
 module.exports = class Triangle {
@@ -1585,7 +1754,7 @@ module.exports = class Triangle {
     }
 }
 
-},{"./Vec3":14}],14:[function(require,module,exports){
+},{"./Vec3":15}],15:[function(require,module,exports){
 module.exports = class Vec3 {
     constructor(x, y, z) {
         this.x = x;
@@ -1660,9 +1829,21 @@ module.exports = class Vec3 {
 
         return Vec3.normalize(Vec3.add(v, Vec3.scalarProd(x, e1), Vec3.scalarProd(y, e2)));
     }
+
+    static randomHemisphereDir(normal) {
+        const b = Vec3.normalize(new Vec3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5));
+
+        if (Vec3.dot(b, normal) < 0) {
+            b.x = -b.x;
+            b.y = -b.y;
+            b.z = -b.z;
+        }
+
+        return b;
+    }
 }
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 const Renderer = require('./Renderer');
 
 window.onload = () => {
@@ -1696,4 +1877,4 @@ window.onload = () => {
 
 }
 
-},{"./Renderer":9}]},{},[15]);
+},{"./Renderer":10}]},{},[16]);

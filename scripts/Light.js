@@ -52,12 +52,14 @@ module.exports = class Light {
 		const specularCos = Math.max(0, -Vec3.dot(intersect.reflDir, lightDir));
         const specularCoeff = Math.pow(specularCos, mat.nSpecular);
 
+        const directCoeff = 0.7;
+
         resultColor.r += this.intensity * this.color.r *
-            (ambientColor.r + coeff * (diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
+            (ambientColor.r + coeff * (directCoeff * diffuseColor.r * cosTheta + specularColor.r * specularCoeff));
         resultColor.g += this.intensity * this.color.g *
-            (ambientColor.g + coeff * (diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
+            (ambientColor.g + coeff * (directCoeff * diffuseColor.g * cosTheta + specularColor.g * specularCoeff));
         resultColor.b += this.intensity * this.color.b *
-            (ambientColor.b + coeff * (diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
+            (ambientColor.b + coeff * (directCoeff * diffuseColor.b * cosTheta + specularColor.b * specularCoeff));
 
 		return resultColor;
 	}
