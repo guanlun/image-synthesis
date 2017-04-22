@@ -20,12 +20,12 @@ module.exports = class DirectionalLight extends Light {
         return 1;
     }
 
-	shadowAttenuation(pos, sceneShapes, debug) {
+	shadowAttenuation(pos, sceneShapes, timeOffset, debug) {
         var opacity = 1;
 		const shadowRay = new Ray(pos, Vec3.scalarProd(-1, this.direction));
 
 		for (let shape of sceneShapes) {
-			const intersect = shape.intersect(shadowRay);
+			const intersect = shape.intersect(shadowRay, timeOffset, debug);
 			if (intersect && (intersect.t > 0.001)) {
                 if (shape.mat.transparency) {
                     opacity *= shape.mat.transparency;

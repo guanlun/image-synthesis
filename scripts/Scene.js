@@ -149,6 +149,7 @@ const materials = {
         nSpecular: 50,
         specularThreshold: 0.8,
         isGlossy: true,
+        glossiness: 0.1,
     },
 
     refractiveMat: {
@@ -165,8 +166,8 @@ const materials = {
 
     glossyRefractiveMat: {
         kAmbient: new Color(0.1, 0.1, 0.1),
-        kDiffuse: new Color(0.1, 0.1, 0.1),
-        kSpecular: new Color(1, 1, 1),
+        kDiffuse: new Color(0.3, 0.3, 0.3),
+        kSpecular: new Color(0.6, 0.6, 0.6),
         isRefractive: true,
         kRefractive: new Color(0.7, 0.7, 0.7),
         nSpecular: 50,
@@ -174,6 +175,8 @@ const materials = {
         ior: 1.2,
         transparency: 0.9,
         isGlossy: true,
+        glossiness: 0.05,
+        opacity: 0.7,
     },
 
     normalReflectiveMat: {
@@ -269,71 +272,11 @@ loadTextureImage(envMapSrc, textureData => {
 const scene1 = {
     shapes: [
         new MeshObject(
-            materials.shinyBlueMat,
-            'cube',
-            new Vec3(-0.5, -0.5, 5)
+            materials.dullRedMat,
+            'tex-cube',
+            new Vec3(1.5, -0.5, -0.5),
+            new Vec3(1, 1, 1)
         ),
-	    // sphere
-        new MeshObject(
-            materials.glossyReflectiveMat,
-            'prism',
-            new Vec3(0, -0.5, 2)
-        ),
-	    // bottom plane
-	    new QuadraticShape(
-            "bottom plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, -2, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 1, 0),
-	        new Vec3(1, 0, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // left plane
-	    new QuadraticShape(
-            "left plane",
-	        materials.dullRedMat,
-	        new Vec3(-3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // right plane
-	    new QuadraticShape(
-            "right plane",
-	        materials.dullGreenMat,
-	        new Vec3(3, 0, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(-1, 0, 0),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // back plane
-	    new QuadraticShape(
-            "back plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, 0, 5),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, 0, -1),
-	        new Vec3(0, 1, 0),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
-	    // top plane
-	    new QuadraticShape(
-            "top plane",
-	        materials.shinyGreyMat,
-	        new Vec3(0, 3, 0),
-	        new Vec3(0, 0, 0),
-	        new Vec3(0, -1, 0),
-	        new Vec3(0, 0, 1),
-	        1, 1, 1,
-	        0, 0, 0, 1, 0
-	    ),
 	],
 
 	lights: [
@@ -422,7 +365,7 @@ const scene2 = {
 	lights: [
 	    new SphericalLight(
 	        new Vec3(1, 2.5, -2),
-            0.3,
+            0.6,
 	        new Vec3(-1, -2, 2),
 			0,
 			1,

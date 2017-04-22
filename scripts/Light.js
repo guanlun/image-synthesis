@@ -7,7 +7,7 @@ module.exports = class Light {
 		this.intensity = intensity;
 	}
 
-	shade(intersect, sceneShapes, debug) {
+	shade(intersect, sceneShapes, timeOffset, debug) {
 		const resultColor = new Color(0, 0, 0);
 
 		const pos = intersect.intersectionPoint;
@@ -15,7 +15,7 @@ module.exports = class Light {
 
         const lightDir = this.getDirection(pos);
 
-        const coeff = this.shadowAttenuation(pos, sceneShapes, debug) * this.distanceAttenuation(pos);
+        const coeff = this.shadowAttenuation(pos, sceneShapes, timeOffset, debug) * this.distanceAttenuation(pos);
 
         const cosTheta = Math.max(0, -Vec3.dot(intersect.normal, lightDir));
 

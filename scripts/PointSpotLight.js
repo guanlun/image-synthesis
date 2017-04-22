@@ -25,14 +25,14 @@ module.exports = class PointSpotLight extends Light {
         return 1 / (1 + this.daCoeff * lightDist + this.daCoeff * lightDist * lightDist);
     }
 
-	shadowAttenuation(pos, sceneShapes, debug) {
+	shadowAttenuation(pos, sceneShapes, timeOffset, debug) {
         var opacity = 1;
 		const intersectToLight = Vec3.subtract(this.position, pos);
 		const shadowRay = new Ray(pos, intersectToLight);
 		const maxT = intersectToLight.magnitude();
 
 		for (let shape of sceneShapes) {
-			const intersect = shape.intersect(shadowRay);
+			const intersect = shape.intersect(shadowRay, timeOffset, debug);
 			if (intersect && (intersect.t > 0.01) && (intersect.t < maxT)) {
                 if (shape.mat.transparency) {
                     opacity *= shape.mat.transparency;
